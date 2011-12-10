@@ -1,0 +1,133 @@
+use warnings;
+use strict;
+package Net::OAuth2::TokenType::Option::Defines;
+
+our (@ISA, @EXPORT, @EXPORT_OK);
+BEGIN {
+  @EXPORT = qw(Default_Value Define_Group);
+  @EXPORT_OK = qw(All_Classes);
+}
+use parent qw(Exporter);
+
+my $_marker; # value does not matter
+
+# _mark(CLASS)
+# marks the class as containing stuff that we care about
+sub _mark {
+    my $class = shift;
+    no strict 'refs';
+    ${"${class}::_Has_Defaults_Or_Groups"} = \ $_marker;
+}
+
+# _is_marked(CLASS)
+# does this class contain stuff that we care about
+sub _is_marked {
+    my $class = shift;
+    no strict 'refs';
+    return ${"${class}::_Has_Defaults_Or_Groups"} == \ $_marker;
+}
+
+# All_Classes(CLASS)
+# return all classes in the ancestor tree of CLASS
+# that contain stuff that we care about
+sub All_Classes {
+    my $class = shift;
+    no strict 'refs';
+    return
+      ((map { _All_Classes($_) } @{"${class}::ISA"}), 
+       (_is_marked($class) ? ($class) : ()));
+}
+
+sub Default_Value {
+    my ($oname, $value) = @_;
+    my $class = caller;
+    _mark($class);
+    no strict 'refs';
+    ${"${class}::Default"}{$oname} = $value;
+
+    # suppress warning about Default only being used once
+    ${"${class}::Default"}{''} = undef;
+}
+
+sub Define_Group {
+    my ($gname, $default, @keys) = @_;
+    my $class = caller;
+    _mark($class);
+
+    # if no keys given, assume single-option group
+    # with option name as the group name
+    @keys = ($gname) unless @keys;  
+
+    no strict 'refs';
+    ${"${class}::Group"}{$gname} =
+      +{
+        keys => \@keys,
+        (defined($default)
+         ? (default => "pkg_${gname}_${default}")
+         : ()),
+       };
+    # suppress warning about Group only being used once
+    ${"${class}::Group"}{''} = undef;
+}
+
+1;
+
+__END__
+
+=head1 NAME
+
+Net::OAuth2::Token::Option::Defines
+
+=head1 SYNOPSIS
+
+ use Net::OAuth2::Token::Option::Defines;
+
+
+=head1 DESCRIPTION
+
+This provides a set of utility functions for defining option groups
+and specifying default values for options.
+
+This is B<not> a base class.
+
+=head1 FUNCTIONS
+
+=over
+
+=item B<Define_Group> C<< groupname => $default, qw(name1 name2 ...) >>
+
+Defines a group of option names (C<name1 name2 ...>) such that 
+if any one of them is needed, the installer for C<groupname> is run
+to provide values for them.  
+
+C<$default>, if defined, specifies the default installer method
+(C<< pkg_groupname_$default >>)
+
+=item B<Default_Value> C<< name => $value >>
+
+Specifies that the default value for option C<name> is C<$value>.
+
+=item B<All_Classes>(C<$class>)
+
+Return a list of all classes in the inheritance hierarchy of C<$class>
+that define any groups or default values.
+
+=back
+
+=head1 AUTHOR
+
+Roger Crew (crew@cs.stanford.edu)
+
+=head1 COPYRIGHT
+
+This module is Copyright (c) 2011, Roger Crew.
+All rights reserved.
+
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+If you need more liberal licensing terms, please contact the
+maintainer.
+
+=head1 WARRANTY
+
+This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.

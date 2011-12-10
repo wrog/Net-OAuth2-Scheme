@@ -1,0 +1,6 @@
+/Net-OAuth2-TokenType*
+.build
+*.swp
+*~
+#*
+notes
