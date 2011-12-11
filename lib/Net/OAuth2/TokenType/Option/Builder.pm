@@ -163,7 +163,7 @@ sub all_exports {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

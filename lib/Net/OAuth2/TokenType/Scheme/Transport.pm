@@ -238,7 +238,7 @@ sub http_parameter_inserter {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

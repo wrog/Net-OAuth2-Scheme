@@ -76,7 +76,7 @@ sub pkg_current_secret_simple {
 
 1;
 
-__END__
+=pod
 
 =head1 NAME
 

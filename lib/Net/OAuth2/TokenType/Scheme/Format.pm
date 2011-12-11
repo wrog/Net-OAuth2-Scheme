@@ -46,7 +46,7 @@ sub pkg_token_validate_default {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

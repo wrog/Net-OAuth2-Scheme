@@ -73,7 +73,7 @@ sub Define_Group {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

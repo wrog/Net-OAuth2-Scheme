@@ -189,3 +189,5 @@ sub decode_plainstring {
 }
 
 1;
+
+=pod

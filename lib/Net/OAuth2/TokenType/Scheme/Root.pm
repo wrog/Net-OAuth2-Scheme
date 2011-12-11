@@ -71,7 +71,7 @@ sub pkg_root_setup {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

@@ -150,7 +150,7 @@ sub pkg_format_http_hmac {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

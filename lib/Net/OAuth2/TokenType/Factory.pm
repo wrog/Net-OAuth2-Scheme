@@ -16,11 +16,7 @@ use parent 'Net::OAuth2::TokenType::Scheme::NextID';
 #... and, we are done.  Bwahahahahahaha.
 1;
 
-__END__
-
-=head1 NAME
-
-Net::OAuth2::TokenType::Factory - OAuth 2.0 token schemes
+=pod
 
 =head1 SYNOPSIS
 
@@ -514,12 +510,6 @@ which causes C<format_bearer_handle> to die if it is not set.
 
 This has a default implementation ...
 
-=head2 v_id_start
-
-Used by v_id_next for counter-based v_ids...
-
-This has a default implementation ...
-
 =head2 random
 
 A cryptographically secure random number generator.
@@ -536,20 +526,3 @@ which is the L<Math::Random::ISAAC(::XS)|Math::Random::ISAAC> random number gene
 
 =head1 INDIVIDUAL OPTIONS
 
-=head1 AUTHOR
-
-Roger Crew (crew@cs.stanford.edu)
-
-=head1 COPYRIGHT
-
-This module is Copyright (c) 2011, Roger Crew.
-All rights reserved.
-
-You may distribute under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
-If you need more liberal licensing terms, please contact the
-maintainer.
-
-=head1 WARRANTY
-
-This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.

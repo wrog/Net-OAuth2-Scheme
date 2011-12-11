@@ -92,7 +92,7 @@ sub pkg_random_isaac {
 }
 
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

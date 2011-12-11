@@ -257,7 +257,7 @@ sub pkg_vtable_pull_queue_default {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

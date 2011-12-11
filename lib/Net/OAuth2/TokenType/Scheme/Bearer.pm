@@ -214,7 +214,7 @@ sub pkg_format_bearer_signed {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 

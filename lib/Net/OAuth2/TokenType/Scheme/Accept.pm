@@ -57,7 +57,7 @@ sub pkg_token_accept_default {
 
 1;
 
-__END__
+=pod
 
 =head1 SYNOPSIS
 
