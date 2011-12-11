@@ -1,10 +1,10 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::VTable;
+package Net::OAuth2::Scheme::Mixin::VTable;
 # ABSTRACT: the 'vtable', 'vtable_cache', and 'vtable_pull_queue' option groups
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 #      parse_token
 #        @token -> validator_id, @payload
@@ -15,7 +15,7 @@ use Net::OAuth2::TokenType::Option::Defines;
 
 #   @token = (token_string [, param => value]*)
 #   @validator = (@secrets [, expiration, scope, ext])
-# Token type determines format of @secrets, @payload and @validator
+# Token scheme determines format of @secrets, @payload and @validator
 # Expiration+@scope may live in either @payload or @validator
 #
 # What needs to be communicated/shared privately

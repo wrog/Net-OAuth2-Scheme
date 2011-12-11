@@ -1,10 +1,10 @@
 use strict;
 use warnings;
 
-package Net::OAuth2::TokenType::Scheme::Format;
+package Net::OAuth2::Scheme::Mixin::Format;
 # ABSTRACT: the 'format' option groupo and 'token_validate'
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 Define_Group token_validate => 'default';
 

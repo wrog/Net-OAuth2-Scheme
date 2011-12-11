@@ -1,10 +1,10 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::Bearer;
-# ABSTRACT: implementations of bearer token types
+package Net::OAuth2::Scheme::Mixin::Bearer;
+# ABSTRACT: implement bearer token schemes
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 
 # Bearer tokens

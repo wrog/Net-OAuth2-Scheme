@@ -1,10 +1,10 @@
 use strict;
 use warnings;
 
-package Net::OAuth2::TokenType::Option::Builder;
+package Net::OAuth2::Scheme::Option::Builder;
 # ABSTRACT: poor man's mixin/role closure builder
 
-use Net::OAuth2::TokenType::Option::Defines qw(All_Classes);
+use Net::OAuth2::Scheme::Option::Defines qw(All_Classes);
 
 
 # use machinery from Net::OAuth2::TokenType::Scheme::Defines

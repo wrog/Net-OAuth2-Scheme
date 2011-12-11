@@ -1,12 +1,12 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::Transport;
+package Net::OAuth2::Scheme::Mixin::Transport;
 # ABSTRACT: the 'transport' option group and helper functions
 
-use Net::OAuth2::TokenType::Option::Defines;
-use parent 'Net::OAuth2::TokenType::Scheme::Bearer';
-use parent 'Net::OAuth2::TokenType::Scheme::HMac';
+use Net::OAuth2::Scheme::Option::Defines;
+use parent 'Net::OAuth2::Scheme::Mixin::Bearer';
+use parent 'Net::OAuth2::Scheme::Mixin::HMac';
 
 # transport helper functions
 

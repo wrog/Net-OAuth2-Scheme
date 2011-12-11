@@ -1,10 +1,10 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::NextID;
+package Net::OAuth2::Scheme::Mixin::NextID;
 # ABSTRACT: the 'v_id_next', 'counter', and 'random' option groups
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 # INTERFACE v_id_next
 # DEFINES

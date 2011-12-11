@@ -1,10 +1,10 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::Current_Secret;
+package Net::OAuth2::Scheme::Mixin::Current_Secret;
 # ABSTRACT: the 'current_secret' option group
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 # INTERFACE current_secret
 # DEFINES
@@ -77,10 +77,6 @@ sub pkg_current_secret_simple {
 1;
 
 =pod
-
-=head1 NAME
-
-Net::OAuth2::TokenType::Scheme::Current_Secret
 
 =head1 SYNOPSIS
 

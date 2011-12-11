@@ -1,7 +1,7 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::HmacUtil;
+package Net::OAuth2::Scheme::HmacUtil;
 # ABSTRACT: hash functions and encodings
 
 use Digest::SHA ();

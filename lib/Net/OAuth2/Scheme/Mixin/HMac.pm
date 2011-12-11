@@ -1,10 +1,10 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::HMac;
-# ABSTRACT: implementation of http_hmac token type
+package Net::OAuth2::Scheme::Mixin::HMac;
+# ABSTRACT: implement http_hmac token scheme
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 # HMAC token
 

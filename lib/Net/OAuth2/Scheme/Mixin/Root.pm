@@ -1,10 +1,10 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType::Scheme::Root;
+package Net::OAuth2::Scheme::Mixin::Root;
 # ABSTRACT: defines the root group setup
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 Define_Group(root => 'setup');
 
@@ -47,7 +47,7 @@ sub pkg_root_setup {
     }
     if ($usage ne 'access') {
         $self->ensure(format_no_params => 1);
-        $self->ensure(is_client => 0, 'client implementations do not need refresh/authcode types'); 
+        $self->ensure(is_client => 0, 'client implementations do not need refresh-token/authcode schemes'); 
         $self->ensure(is_auth_server => 1);
         $self->ensure(is_resource_server => 1);
     }

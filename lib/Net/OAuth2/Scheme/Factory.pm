@@ -1,17 +1,17 @@
 use strict;
 use warnings;
 
-package Net::OAuth2::TokenType::Factory;
-# ABSTRACT: a factory for token types
+package Net::OAuth2::Scheme::Factory;
+# ABSTRACT: a factory for schemes
 
-use parent 'Net::OAuth2::TokenType::Option::Builder';
+use parent 'Net::OAuth2::Scheme::Option::Builder';
 
-use parent 'Net::OAuth2::TokenType::Scheme::Root';
-use parent 'Net::OAuth2::TokenType::Scheme::Transport';
-use parent 'Net::OAuth2::TokenType::Scheme::Format';
-use parent 'Net::OAuth2::TokenType::Scheme::Accept';
-use parent 'Net::OAuth2::TokenType::Scheme::VTable';
-use parent 'Net::OAuth2::TokenType::Scheme::NextID';
+use parent 'Net::OAuth2::Scheme::Mixin::Root';
+use parent 'Net::OAuth2::Scheme::Mixin::Transport';
+use parent 'Net::OAuth2::Scheme::Mixin::Format';
+use parent 'Net::OAuth2::Scheme::Mixin::Accept';
+use parent 'Net::OAuth2::Scheme::Mixin::VTable';
+use parent 'Net::OAuth2::Scheme::Mixin::NextID';
 
 #... and, we are done.  Bwahahahahahaha.
 1;
@@ -74,24 +74,24 @@ use parent 'Net::OAuth2::TokenType::Scheme::NextID';
      cache => $private_cache_object,  # only accessible to authserver(s)
   );
 
-  sub TOKENTYPE_CLASS { 'Net::OAuth2::TokenType' }
+  sub SCHEME_CLASS { 'Net::OAuth2::Scheme' }
 
   ######
   # client code
 
-  my $access_token_type = TOKENTYPE_CLASS->new(%recipe_client);
+  my $access_scheme = SCHEME_CLASS->new(%recipe_client);
 
   ######
   # authserver code
 
-  my $access_token_type  = TOKENTYPE_CLASS->new(%recipe_auth);
-  my $refresh_token_type = TOKENTYPE_CLASS->new(%recipe_refresh);
-  my $authcode_type      = TOKENTYPE_CLASS->new(%recipe_authcode);
+  my $access_scheme   = SCHEME_CLASS->new(%recipe_auth);
+  my $refresh_scheme  = SCHEME_CLASS->new(%recipe_refresh);
+  my $authcode_scheme = SCHEME_CLASS->new(%recipe_authcode);
 
   ######
   # resource code
 
-  my $token_type = TOKENTYPE_CLASS->new(%recipe_resource);
+  my $access_scheme = SCHEME_CLASS->new(%recipe_resource);
 
 
 =head1 DESCRIPTION
@@ -125,14 +125,40 @@ resource/authorization server secret sharing paradigm
 
 =back
 
-and then generates a token type object for the particular purpose and
-context for which it is needed, whether this be an access token for a
-client, authorization server, or resource server, or a refresh token
-or an authorization code.
+and then generates a scheme object for the particular purpose and
+context for which it is needed, whether this be an access token scheme
+for a client, authorization server, or resource server, or a refresh
+token scheme or an authorization code scheme
 
-The token type object (see L<Net::OAuth2::TokenType>) produced has
-methods for creating, disecting, and transmitting individual tokens
-that are specific to the specified scheme.
+The scheme object (see L<Net::OAuth2::Scheme>) produced then has
+the methods for handling the stages of the token lifecycle, i.e.,
+
+=over
+
+=item *
+
+Authorization Server does "token_create" to issue the token
+
+=item *
+
+Client does "token_accept" when receiving it
+
+=item *
+
+Client does "http_insert" to get it into a resource API message,
+
+=item *
+
+Resource Server does "http_extract" and then "validate" (which are
+two separate methods because for refresh tokens and authorization
+codes, "http_extract" is not needed; the Authorization Server just
+needs to be able do "validate" by itself).
+
+=back
+
+plus whatever additional hooks are needed to support the communication
+of validation secrets between the authorization server and the
+resource server.
 
 =head1 KINDS OF OPTIONS
 
@@ -155,7 +181,7 @@ the option values belonging to I<group_name>.
 This will often have the effect of requiring other option values,
 which then might cause other implementations to be installed.
 Implementations may also designate "exports" that will then 
-appear as additional methods on the token type object.
+appear as additional methods on the scheme object.
 
 I<implementation> is usually a string indicating the name of the method to be 
 called to instantiate the values of the options in I<group_name>
@@ -183,7 +209,8 @@ E.g., the previous example is equivalent to
 =back
 
 Group settings and single-option settings can be given in any order;
-nothing is executed until the context/usage is determined and a token type is to be produced.
+nothing is executed until the context/usage is determined and a scheme
+object is to be produced.
 
 Note however that the usual rules for initialing perl hashes still apply,
 e.g., if you specify an option setting twice in the same call, 
@@ -192,7 +219,8 @@ only the second one matters
 
 =head1 USAGE OPTIONS
 
-There are two option settings that determine where and how the token type can used
+There are two option settings that determine where and how tokens/codes
+produced according to this scheme can used
 
 =head2 usage
 
@@ -203,11 +231,11 @@ There are two option settings that determine where and how the token type can us
 (Default.)  Indicates that this is a token used for access to resources.  
 
 Note that in OAuth2, clients and resource servers do not, in fact,
-need to see other kinds of token type objects.  (Yes, client
+(currently) need to see other kinds of scheme objects.  (Yes, client
 implementations do handle refresh tokens and authorization codes, but
-there they are simply opaque strings and the transport is already
-nailed down by the OAuth2 protocol itself, so there are no actual
-methods that need to be made available.)
+there they are simply opaque strings and all aspects of transport are
+already nailed down by the OAuth2 protocol itself, so there are no
+actual methods that need to be made available.)
 
 =item C<refresh>
 
@@ -241,23 +269,23 @@ them.)
 
 =head2 context
 
-For access token types, the context value can be one of the following strings:
+For access-token schemes, the context value can be one of the following:
 
 =over
 
 =item C<client>
 
-This token type is for use in a client implementation.
+This scheme object is for use in a client implementation.
 Provides at least B<token_accept> and B<http_insert>.
 
 =item C<resource_server>
 
-This token type is for use in a resource server implementation.
+This scheme object is for use in a resource server implementation.
 Provides at least B<http_extract> and B<token_validate>.
 
 =item C<authorization_server>
 
-This token type is for use in an authorization server implementation.
+This scheme object is for use in an authorization server implementation.
 Provides at least B<token_create>.
 
 =back
@@ -408,7 +436,7 @@ server implementation.  It is expected to send its (opaque) argument
 to the resource server and then returns the (null or error code)
 response it received.
 
-The function B<vtable_pushed> is exported by the token type to the
+The function B<vtable_pushed> is available on the scheme object to the
 resource server implementation.  The push request handler is expected
 to call it on the value sent by B<vtable_push> and send back whatever
 return value (null or error code) it gets.
@@ -460,7 +488,7 @@ The function B<vtable_pull> must be supplied in the resource server
 implementation and is expected to send an opaque query to the
 authorization server and return whatever response it receives.
 
-The function B<vtable_dump> is exported by the token type to the
+The function B<vtable_dump> is available on the scheme object to the
 authorization server implementation.  Its argument is expected to be
 the query value received by the pull-handler, and its return value
 is to be included in the response to the pull request.

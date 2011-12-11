@@ -1,10 +1,10 @@
 use strict;
 use warnings;
 
-package Net::OAuth2::TokenType::Scheme::Accept;
+package Net::OAuth2::Scheme::Mixin::Accept;
 # ABSTRACT: defines 'token_accept'
 
-use Net::OAuth2::TokenType::Option::Defines;
+use Net::OAuth2::Scheme::Option::Defines;
 
 # FUNCTION token_accept
 #   token[, issue_attributes] -> error, token[, save_attributes]

@@ -1,6 +1,6 @@
 use warnings;
 use strict;
-package Net::OAuth2::TokenType::Option::Defines;
+package Net::OAuth2::Scheme::Option::Defines;
 # ABSTRACT: functions for creating option groups and default values
 
 our (@ISA, @EXPORT, @EXPORT_OK);
@@ -77,7 +77,7 @@ sub Define_Group {
 
 =head1 SYNOPSIS
 
- use Net::OAuth2::Token::Option::Defines;
+ use Net::OAuth2::Scheme::Option::Defines;
 
 
 =head1 DESCRIPTION
