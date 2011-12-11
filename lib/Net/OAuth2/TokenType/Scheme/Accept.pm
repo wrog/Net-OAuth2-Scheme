@@ -2,6 +2,7 @@ use strict;
 use warnings;
 
 package Net::OAuth2::TokenType::Scheme::Accept;
+# ABSTRACT: defines 'token_accept'
 
 use Net::OAuth2::TokenType::Option::Defines;
 
@@ -54,16 +55,9 @@ sub pkg_token_accept_default {
 }
 
 
-
-
-
 1;
 
 __END__
-
-=head1 NAME
-
-Net::OAuth2::TokenType::Scheme::Accept
 
 =head1 SYNOPSIS
 
@@ -71,20 +65,3 @@ Net::OAuth2::TokenType::Scheme::Accept
 
 This implements the default B<token_accept> client token method.
 
-=head1 AUTHOR
-
-Roger Crew (crew@cs.stanford.edu)
-
-=head1 COPYRIGHT
-
-This module is Copyright (c) 2011, Roger Crew.
-All rights reserved.
-
-You may distribute under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
-If you need more liberal licensing terms, please contact the
-maintainer.
-
-=head1 WARRANTY
-
-This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.

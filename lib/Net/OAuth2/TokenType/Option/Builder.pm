@@ -1,7 +1,9 @@
-use warnings;
 use strict;
+use warnings;
 
 package Net::OAuth2::TokenType::Option::Builder;
+# ABSTRACT: poor man's mixin/role closure builder
+
 use Net::OAuth2::TokenType::Option::Defines qw(All_Classes);
 
 
@@ -163,15 +165,33 @@ sub all_exports {
 
 __END__
 
-=head1 NAME
-
-Net::OAuth2::TokenType::Option::Builder -- poor man's mixin/role closure builder
-
 =head1 SYNOPSIS
 
- use parent Net::OAuth2::TokenType::Option::Builder
+  use parent Net::OAuth2::TokenType::Option::Builder;
+
+  Define_Group gearshift => tenspeed,
+    qw(gearshift_doshift gearshift_coast);
+
+  sub pkg_gearshift_tenspeed {
+    my $self = shift;
+    my $count = $self->uses(gearcount);
+    $self->install(gearshift_doshift => sub {
+       ...
+    }
+    $self->install(gearshift_coast => sub {
+       ...
+    }
+  }  
+
+  sub pkg_gearshift_sturmey_archer {
+    ...
+  }
+
+
 
 =head1 DESCRIPTION
+
+ buh.
 
 =head1 METHODS
 
@@ -202,8 +222,8 @@ to the list of exported options.
 
 =item B<ensure> (C<< name => $value >>)
 
-Does B<uses>(C<< name => $value >>) then dies 
-if option C<name> does not, in fact, have the value C<$value>.
+Does B<uses>(C<< name => $value >>)
+then dies if option C<name> does not, in fact, have the value C<$value>.
 
 =item B<uses_all> (C<<qw( name1 name2 ... )>>)
 
@@ -216,36 +236,5 @@ returning the list of corresponding values.
 
 =back
 
-
-#
-# $TS->make_for_(context)
-#   returns a token type with whatever methods are needed
-#   by the specified context
-#
-# Option values are expected to be CONSTANT.
-# It is an error to install() something twice.
-#
-# Also, no closures returned should refer to $self directly
-# or indirectly; we want the TokenScheme object to able to
-# self-destruct as soon as we have the methods we need
-
-# package TokenType::Scheme::Stuff;
-# use TokenType::Scheme::Base;
-#
-# Define_Group(...);
-# ...
-# Default_Value(...);
-# ...
-# sub pkg_whatever { ... }
-# ...
-# 1;
-
-# package MyTokenFactory;
-# use parent TokenType::Scheme::Stuff;
-# use parent TokenType::Scheme::MoreStuff;
-
-# package Client;
-#
-# my $token_type = MyTokenFactory->new(%recipe)->make_for_client
 
 

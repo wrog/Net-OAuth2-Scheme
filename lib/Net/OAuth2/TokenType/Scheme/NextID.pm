@@ -2,6 +2,7 @@ use warnings;
 use strict;
 
 package Net::OAuth2::TokenType::Scheme::NextID;
+# ABSTRACT: the 'v_id_next', 'counter', and 'random' option groups
 
 use Net::OAuth2::TokenType::Option::Defines;
 
@@ -93,30 +94,9 @@ sub pkg_random_isaac {
 
 __END__
 
-=head1 NAME
-
-Net::OAuth2::TokenType::Scheme::NextID
-
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
 
 This handles ID generation for use as VTable keys.
 
-=head1 AUTHOR
-
-Roger Crew (crew@cs.stanford.edu)
-
-=head1 COPYRIGHT
-
-This module is Copyright (c) 2011, Roger Crew.
-All rights reserved.
-
-You may distribute under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
-If you need more liberal licensing terms, please contact the
-maintainer.
-
-=head1 WARRANTY
-
-This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.

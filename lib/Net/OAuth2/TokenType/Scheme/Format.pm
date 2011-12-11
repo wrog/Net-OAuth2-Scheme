@@ -2,6 +2,7 @@ use strict;
 use warnings;
 
 package Net::OAuth2::TokenType::Scheme::Format;
+# ABSTRACT: the 'format' option groupo and 'token_validate'
 
 use Net::OAuth2::TokenType::Option::Defines;
 
@@ -47,30 +48,9 @@ sub pkg_token_validate_default {
 
 __END__
 
-=head1 NAME
-
-Net::OAuth2::TokenType::Scheme::Format
-
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
 
 This creates a framework for specifying token formats.
 
-=head1 AUTHOR
-
-Roger Crew (crew@cs.stanford.edu)
-
-=head1 COPYRIGHT
-
-This module is Copyright (c) 2011, Roger Crew.
-All rights reserved.
-
-You may distribute under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
-If you need more liberal licensing terms, please contact the
-maintainer.
-
-=head1 WARRANTY
-
-This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.

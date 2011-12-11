@@ -2,6 +2,7 @@ use warnings;
 use strict;
 
 package Net::OAuth2::TokenType::Scheme::Root;
+# ABSTRACT: defines the root group setup
 
 use Net::OAuth2::TokenType::Option::Defines;
 
@@ -69,3 +70,12 @@ sub pkg_root_setup {
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This defines implementation contexts.
+

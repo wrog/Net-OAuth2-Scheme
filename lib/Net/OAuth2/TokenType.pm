@@ -2,6 +2,7 @@ use warnings;
 use strict;
 
 package Net::OAuth2::TokenType;
+# ABSTRACT: Token type objects and definition framework for OAuth 2.0
 
 our %_all = ();
 our $Factory_Class = 'Net::OAuth2::TokenType::Factory';
@@ -53,10 +54,6 @@ sub DESTROY {
 1;
 
 __END__
-
-=head1 NAME
-
-Net::OAuth2::TokenType - OAuth 2.0 token type objects
 
 =head1 DESCRIPTION
 
@@ -261,15 +258,15 @@ time of token issue in seconds UTC since The Epoch (midnight, January 1, 1970)
 
 =item I<$expires_in>
 
-number of seconds later that token expires
+number of seconds after I<$issue_time> that token expires
 
 =item I<@bindings>
 
 an arbitrary sequence of string values that are bound into the token.  
 
-For the purposes of this module these values are opaque and up to the module user,
-though an OAuth2 implementation will almost certainly want to include at least
-scope, client_id, and resource_id.
+For the purposes of this module these values are opaque and up to the
+module user, though an OAuth2 implementation will almost certainly be
+including at least resource_id, client_id, and scope
 
 =item I<$request_out>
 
@@ -286,44 +283,52 @@ something with a similar interface.
 =item I<@token_as_issued>
 
 the token string (C<access_token> value) followed by the sequence of
-alternating parameter I<name> C<=E<gt>> I<value> pairs that comprise
-the token as issued by the authorization server, namely the
-C<token_type> and any extension parameters defined as part of this
-token scheme, all values being as they appear in a successful token or
-authorization endpoint response, once the parameters have been
-properly extracted from the JSON structure or URI-fragment of the
-response (or prior to insertion, depending).
+alternating keyword-value pairs that comprise the token as issued by
+the authorization server.  The keywords here will be C<token_type> and
+the names of any extension parameters defined as part of this token
+scheme that are needed in order to construct an access request using
+this token.  All values are as they appear in a successful token or
+authorization endpoint response (i.e., prior to being encoded into a
+JSON structure or URI fragment on the authorization server, or,
+equivalently, after such decoding on the client side).
 
-Note that this explicitly does I<not> include the C<expires_in>,
-C<scope>, and C<refresh_token> values that may be optionally
-transmitted with the token.
+Note that C<expires_in>, C<scope>, and C<refresh_token> are
+specifically I<not> included here (see next item).
 
-For refresh tokens and authorization codes, I<@token_as_issued> is
-always a one-element list consisting solely of the string token value.
+For refresh tokens and authorization codes, I<@token_as_issued> will
+always be a one-element list consisting solely of the string token
+value.
+
+=item I<@non_token_params>
+
+the keyword-value pairs corresponding to the C<expires_in>, C<scope>,
+C<refresh_token> and any other parameters (whether due to an exension,
+local variation, or specified in some future version of OAuth)
+received in a token response that are I<not> needed in order to
+construct an access request using this token.
 
 =item I<@token_as_saved>
 
-the token string plus I<name> C<=E<gt>> I<value> pairs that comprise
+the token string plus I<keyword> C<=E<gt>> I<value> pairs that comprise
 the token in the form that it is to be saved on the client.  
 
 This may include additional client-side data as required by the token
-scheme (e.g., http_hmac requires the receive time) or additional
-parameters (e.g., C<expires_in>, C<scope>) included at the discretion
-of the client implementer E<mdash> pretty much anything goes as long
-as it there is no conflict with the extension parameters meaningful
-for this token scheme.
+scheme (e.g., http_hmac requires the receive time).  Some or all of
+I<@non_token_params> can also be included at the discretion of the client
+implementer.
 
-=item I<@token>
+=item I<@token_as_used>
 
-the token string plus I<name> C<=E<gt>> I<value> pairs that comprise
-the token in the form that it is to be sent to the resource server.
-Here, the I<name>s tend to refer to Authorization header attributes,
-body parameters, or URI parameters depending on the transport scheme
-and need not have anything to do with the names used in
-I<@token_as_issued>
+the token string plus I<keyword> C<=E<gt>> I<value> pairs that
+comprise the token in the form that it is to be sent to the resource
+server.  Here, the I<keyword>s will refer to Authorization header
+attributes, body parameters, or URI parameters depending on the
+transport scheme in use and need not have anything to do with the
+keywords that appear in I<@token_as_issued> or I<@token_as_saved>.
 
-For refresh tokens and authorization codes, I<@token> must
-be a one-element list consisting solely of the string token value.
+For refresh tokens and authorization codes, I<@token_as_issued> and
+I<@token_as_used> are one-element lists consisting solely of the
+string token value.
 
 =item I<$error>
 
@@ -353,9 +358,8 @@ for this token type.
 
 =head2 token_accept  I<[Client]>
 
- ($error, @token_as_used) = type->token_accept(@token_as_issued)
-
-when receiving a new token, this
+ ($error, @token_as_saved)
+   = type->token_accept(@token_as_issued, @non_token_params)
 
 =over
 
@@ -366,49 +370,46 @@ this token type.
 
 =item *
 
-insert additional client-side information (e.g., the time of receipt
-for C<http_hmac> tokens) that may be needed when the token is to be
-used.
+includes in @token_as_saved, additional client-side information (e.g.,
+the time of receipt for C<http_hmac> tokens) that may be needed to
+construct access requests,
 
 =item *
 
-optionally strips out the impossible parameters C<expires_in>,
-C<refresh_token>, and C<scope>, ("impossible" because these have
-specific roles in the token response as defined by the OAuth2 protocol,
-no extension parameters can ever have these names,
-and therefore they cannot ever be needed in order to send the token),
-and other parameters known to be ignored by B<http_insert>
-(i.e., so that you're only saving what you need to).
+includes some or all of I<@non_token_params> as determined by the
+option settings C<accept_keep> and C<accept_remove>.  Note that the
+I<@non_token_params> supplied to this call can be a (possibly empty)
+subset of the originally received I<@non_token_params> (i.e., it's
+okay to remove these parameters beforehand if you want).
 
 =back
 
-Clients I<can> simultaneously accomdate multiple token transport types
+Clients I<can> simultaneously accomodate multiple token transport types
 provided each expected C<token_type> value corresponds to at most one
 specified token type, e.g.,
-  
-  my ($error, $use_type, @token);
+
+  my ($error, $use_type, @token_as_saved);
   for my $type ($bearer_type, $hmac_http_type, ...) {
-     ($error, @token) = $type->token_accept(@token_as_issued);
+     ($error, @token_as_saved)
+       = $type->token_accept(@token_as_issued);
      unless ($error) {
          $use_type = $type;
          last;
      }
   }
-  unless ($use_type) { ... complain/die... }
+  unless ($use_type) { ... complain... }
 
 =head2 http_insert  I<[Client]>
 
- ($error, $request_out) = type->http_insert($request_out, @token_as_saved)
+ ($error, $request_out)
+  = type->http_insert($request_out, @token_as_saved)
 
-modifies (in-place) an outgoing request so as to include I<@token> as
-authorization, returning the modified request.  This may either add
-headers, post-body parameters, or uri parameters accordings as
-specified by the transport specification chosen.
-
-Depending on whether or not this was already done by B<token_accept>,
-C<token_type> and whichever impossible or unknown parameters still
-remain are first stripped out before the token is included in the
-request.
+converts I<@token_as_saved> to I<@token_as_used> E<mdash> silently ignoring any
+I<@non_token_params> that might be present E<mdash> then modifies (in-place) 
+the outgoing request so as to include I<@token_as_used> as authorization,
+returning the modified request.  This may either add headers,
+post-body parameters, or uri parameters as per the transport scheme
+for this token type.
 
 =head2 http_extract  I<[Resource Server]>
 
@@ -419,17 +420,17 @@ conform to this token type's transport specification.
 
 Ideally, there would be at most one valid token in any given request,
 however, other headers or parameters may, depending on how the
-resource API is structured, spuriously match the token transport 
-specification and we won't find this out until we attempt to validate 
-the resulting "tokens".  (Ideally, this would not happen with a 
-well-designed API, but there may be legacies and compromises to 
+resource API is structured, spuriously match the token transport
+specification and we won't find this out until we attempt to validate
+the resulting "tokens" (not that this should happen with a
+well-designed API, but there may be legacies and compromises to
 contend with...)
 
 It may also be that one may wish for a given resource API to accept
-multiple tokens in certain situations.  It is, however, B<strongly
-recommended> that there be a fixed, small limit on number of tokens
-that may be included in any request E<mdash> otherwise you risk
-providing an attacker an easy means of brute-force search to
+multiple tokens in certain situations.  If you go this route, it is
+B<strongly recommended> that there be a fixed, small limit on number
+of tokens that may be included in any request E<mdash> otherwise you
+risk providing an attacker an easy means of brute-force search to
 forge/discover token values.
 
 =head2 token_validate  I<[Resource Server], [Refresh Tokens/Authcodes]>
@@ -463,23 +464,4 @@ corresponding opaque sequence to be included in the response and
 returned from B<vtable_pull> on the resource server side.  Note that
 I<@pull_response> may contain an error indication, but if so, that
 should be handled by the resource server.
-
-=head1 AUTHOR
-
-Roger Crew (crew@cs.stanford.edu)
-
-=head1 COPYRIGHT
-
-This module is Copyright (c) 2011, Roger Crew.
-All rights reserved.
-
-You may distribute under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
-If you need more liberal licensing terms, please contact the
-maintainer.
-
-=head1 WARRANTY
-
-This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.
-
 

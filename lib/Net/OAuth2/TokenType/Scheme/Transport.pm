@@ -2,8 +2,11 @@ use warnings;
 use strict;
 
 package Net::OAuth2::TokenType::Scheme::Transport;
+# ABSTRACT: the 'transport' option group and helper functions
 
 use Net::OAuth2::TokenType::Option::Defines;
+use parent 'Net::OAuth2::TokenType::Scheme::Bearer';
+use parent 'Net::OAuth2::TokenType::Scheme::HMac';
 
 # transport helper functions
 
@@ -234,3 +237,12 @@ sub http_parameter_inserter {
 
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+=head1 DESCRIPTION
+
+This defines transport schemes.
+

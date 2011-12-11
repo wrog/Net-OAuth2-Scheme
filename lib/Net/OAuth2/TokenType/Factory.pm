@@ -2,11 +2,16 @@ use strict;
 use warnings;
 
 package Net::OAuth2::TokenType::Factory;
+# ABSTRACT: a factory for token types
+
+use parent 'Net::OAuth2::TokenType::Options::Builder';
 
 use parent 'Net::OAuth2::TokenType::Scheme::Root';
 use parent 'Net::OAuth2::TokenType::Scheme::Transport';
 use parent 'Net::OAuth2::TokenType::Scheme::Format';
 use parent 'Net::OAuth2::TokenType::Scheme::Accept';
+use parent 'Net::OAuth2::TokenType::Scheme::VTable';
+use parent 'Net::OAuth2::TokenType::Scheme::NextID';
 
 #... and, we are done.  Bwahahahahahaha.
 1;

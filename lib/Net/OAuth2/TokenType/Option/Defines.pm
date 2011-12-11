@@ -1,6 +1,7 @@
 use warnings;
 use strict;
 package Net::OAuth2::TokenType::Option::Defines;
+# ABSTRACT: functions for creating option groups and default values
 
 our (@ISA, @EXPORT, @EXPORT_OK);
 BEGIN {
@@ -74,10 +75,6 @@ sub Define_Group {
 
 __END__
 
-=head1 NAME
-
-Net::OAuth2::Token::Option::Defines
-
 =head1 SYNOPSIS
 
  use Net::OAuth2::Token::Option::Defines;
@@ -114,20 +111,3 @@ that define any groups or default values.
 
 =back
 
-=head1 AUTHOR
-
-Roger Crew (crew@cs.stanford.edu)
-
-=head1 COPYRIGHT
-
-This module is Copyright (c) 2011, Roger Crew.
-All rights reserved.
-
-You may distribute under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
-If you need more liberal licensing terms, please contact the
-maintainer.
-
-=head1 WARRANTY
-
-This is free software. IT COMES WITHOUT WARRANTY OF ANY KIND.
