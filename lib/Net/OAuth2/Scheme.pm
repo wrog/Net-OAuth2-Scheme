@@ -1,11 +1,11 @@
 use warnings;
 use strict;
 
-package Net::OAuth2::TokenType;
-# ABSTRACT: Token type objects and definition framework for OAuth 2.0
+package Net::OAuth2::Scheme;
+# ABSTRACT: Token scheme objects and definition framework for OAuth 2.0
 
 our %_all = ();
-our $Factory_Class = 'Net::OAuth2::TokenType::Factory';
+our $Factory_Class = 'Net::OAuth2::Scheme::Factory';
 my $This = 'a';
 
 sub new {
@@ -59,28 +59,28 @@ __END__
 
 =head1 DESCRIPTION
 
-A token type object represents a particular combination of
+A token scheme object represents a particular combination of
 
 providing token creation, validation, and transmission methods
 that are specialized for the given situation.
 
 Note that for the purposes of this module, authorization codes are
 essentially another kind of token and thus can likewise have token
-type objects for manipulating them.
+scheme objects for manipulating them.
 
 =head1 SYNOPSIS
 
 Exactly how this would look depends on the respective server
 frameworks in use, but...
 
-  our %access_token_scheme = (... options describing token scheme ...);
+  our %access_options = (... options describing token scheme ...);
 
   ##
   ## Within a Client Implementation
   ##
 
-  our $token_type = Net::OAuth2::TokenType->new
-    (%access_token_scheme, context => 'client');
+  our $access_scheme = Net::OAuth2::Scheme->new
+    (%access_options, context => 'client');
 
   ... obtain authorization grant
   ... send token request
@@ -89,14 +89,14 @@ frameworks in use, but...
   #
   my %params = ... parameters from token response
 
-  my ($error, @token) = $token_type->token_accept(%params)
+  my ($error, @token) = $access_scheme->token_accept(%params)
   ... complain if $error
 
   # use token
   #
   my $request = ... build HTTP request as per resource API
 
-  ($error, $request) = $token_type->http_insert($request, @token);
+  ($error, $request) = $access_scheme->http_insert($request, @token);
 
   ... complain if $error
   ... send $request
@@ -105,22 +105,22 @@ frameworks in use, but...
   ## Within an Authorization Server Implementation
   ##
 
-  our $access_token_type = 
-    Net::OAuth2::TokenType->new
-     (%access_token_scheme, context => 'auth_server');
+  our $access_scheme = 
+    Net::OAuth2::Scheme->new
+     (%access_options, context => 'auth_server');
 
-  our $refresh_token_type = 
-    Net::OAuth2::TokenType->new
+  our $refresh_scheme = 
+    Net::OAuth2::Scheme->new
      (kind => 'refresh', ... options ... );
 
   # create tokens
   #
   ($error, my @token) = 
-    $token_type->token_create($now=time(), 900, ...);
+    $access_scheme->token_create($now=time(), 900, ...);
     ... complain if $error
 
   ($error, my $refresh) = 
-    $refresh_token_type->token_create($now, 86400, ...);
+    $refresh_scheme->token_create($now, 86400, ...);
     ... complain if $error
   }
 
@@ -132,15 +132,15 @@ frameworks in use, but...
   ## Within a Resource Server Implementation
   ##
 
-  our $token_type = Net::OAuth2::TokenType->new
-    (%access_token_scheme, context => 'resource_server');
+  our $token_scheme = Net::OAuth2::Scheme->new
+    (%access_options, context => 'resource_server');
 
   HANDLER for resource endpoint = sub {
      my Plack::Request $request = shift;
 
      # extract tokens from request
      # 
-     my ($error, @tokens_found) = $token_type->http_extract($request);
+     my ($error, @tokens_found) = $token_scheme->http_extract($request);
      ... complain if $error
      ... deal with (@tokens_found != 1) as appropriate
 
@@ -149,7 +149,7 @@ frameworks in use, but...
      # validate token
      # 
      my ($error, $issue_time, $expires_in, @bindings) =
-       $token_type->token_validate(@token);
+       $token_scheme->token_validate(@token);
 
      ... check $error
      ... check $issue_time + $expires_in vs. time()
@@ -158,15 +158,15 @@ frameworks in use, but...
   }
 
   ##########################################################
-  %access_token_scheme = (... vtable => 'authserv_push' ...)
+  %access_options = (... vtable => 'authserv_push' ...)
 
   ##
   ## within an Authorization Server implementation
   ##
 
-  our $access_token_type = 
-    Net::OAuth2::TokenType->new
-     (%access_token_scheme,
+  our $access_token_scheme = 
+    Net::OAuth2::Scheme->new
+     (%access_options,
       context => 'auth_server',
       vtable_push => \&my_vtable_push,
      );
@@ -184,36 +184,36 @@ frameworks in use, but...
   ## within a Resource Server implementation
   ##
 
-  our $access_token_type = 
-    Net::OAuth2::TokenType->new
-     (%access_token_scheme, context => 'resource_server');
+  our $access_token_scheme = 
+    Net::OAuth2::Scheme->new
+     (%access_options, context => 'resource_server');
 
   HANDLER for authserv_push endpoint... = sub {
     ... authenticate authorization server
 
     my @new_entry = ... unserialize from request;
-    my ($error) = $token_type->vtable_pushed(@new_entry);
+    my ($error) = $token_scheme->vtable_pushed(@new_entry);
 
     ... return error response if $error
     ... return success 
   }
 
   ##########################################################
-  %access_token_scheme = (... vtable => 'resource_pull' ...)
+  %access_options = (... vtable => 'resource_pull' ...)
 
   ##
   ## within an Authorization Server implementation
   ##
 
-  our $access_token_type = 
-    Net::OAuth2::TokenType->new
-     (%access_token_scheme, context => 'auth_server');
+  our $access_token_scheme = 
+    Net::OAuth2::Scheme->new
+     (%access_options, context => 'auth_server');
 
   HANDLER for resource_pull endpoint ... = sub {
     ... authenticate resource server
 
     my @pull_query = ... unserialize from request
-    my @pull_response = $token_type->vtable_dump(@pull_query);
+    my @pull_response = $token_scheme->vtable_dump(@pull_query);
 
     ... return response with serialization of @pull_response
   }
@@ -222,9 +222,9 @@ frameworks in use, but...
   ## within a Resource Server implementation
   ##
 
-  our $access_token_type = 
-    Net::OAuth2::TokenType->new
-     (%access_token_scheme, 
+  our $access_token_scheme = 
+    Net::OAuth2::Scheme->new
+     (%access_options, 
       context => 'resource_server',
       vtable_pull => \&my_vtable_pull,
      );
@@ -244,13 +244,18 @@ frameworks in use, but...
 
 =head2 new
 
- $type = new(%token_scheme);
+ $scheme = new(%scheme_options);
+ $scheme = new(factory => $factory_class, %scheme_options);
 
+See L<Net::OAuth::Scheme::Factory> for what I<%scheme_options> can be.
+
+Use the second form if you want to substitute your own $factory_class; 
+note that this option must appear first.
 
 =head1 METHODS
 
 The parameter and return values that are used in common amongst the
-various type object methods are as follows:
+various scheme object methods are as follows:
 
 =over
 
@@ -339,13 +344,13 @@ and otherwise will be some true value when the method call fails.
 
 =back
 
-The following methods will be defined on token type objects,
+The following methods will be defined on token scheme objects,
 depending on the context chosen:
 
 =head2 token_create  I<[Authorization Server]>
 
  ($error, @token_as_issued) =
-   type->token_create($issue_time, $expires_in, @bindings)
+   scheme->token_create($issue_time, $expires_in, @bindings)
 
 creates a new token in the form to be sent to the client.  As a side
 effect this also communicates any necessary secrets and perhaps also
@@ -356,19 +361,19 @@ Questions of token format, whether (and which) bindings are physically
 included with the token as sent to the client vs. communicated
 separately to the resource server, and how such communication takes
 place are determined by the format and vtable specifications chosen
-for this token type.
+for this token scheme.
 
 =head2 token_accept  I<[Client]>
 
  ($error, @token_as_saved)
-   = type->token_accept(@token_as_issued, @non_token_params)
+   = scheme->token_accept(@token_as_issued, @non_token_params)
 
 =over
 
 =item *
 
 checks that the C<token_type> parameter is as expected for 
-this token type.
+this token scheme.
 
 =item *
 
@@ -386,39 +391,39 @@ okay to remove these parameters beforehand if you want).
 
 =back
 
-Clients I<can> simultaneously accomodate multiple token transport types
+Clients I<can> simultaneously accomodate multiple token transport schemes
 provided each expected C<token_type> value corresponds to at most one
-specified token type, e.g.,
+specified token scheme, e.g.,
 
-  my ($error, $use_type, @token_as_saved);
-  for my $type ($bearer_type, $hmac_http_type, ...) {
+  my ($error, $use_scheme, @token_as_saved);
+  for my $scheme ($bearer_scheme, $hmac_http_scheme, $whatever...) {
      ($error, @token_as_saved)
-       = $type->token_accept(@token_as_issued);
+       = $scheme->token_accept(@token_as_issued);
      unless ($error) {
-         $use_type = $type;
+         $use_scheme = $scheme;
          last;
      }
   }
-  unless ($use_type) { ... complain... }
+  unless ($use_scheme) { ... complain... }
 
 =head2 http_insert  I<[Client]>
 
  ($error, $request_out)
-  = type->http_insert($request_out, @token_as_saved)
+  = $scheme->http_insert($request_out, @token_as_saved)
 
 converts I<@token_as_saved> to I<@token_as_used> E<mdash> silently ignoring any
 I<@non_token_params> that might be present E<mdash> then modifies (in-place) 
 the outgoing request so as to include I<@token_as_used> as authorization,
 returning the modified request.  This may either add headers,
 post-body parameters, or uri parameters as per the transport scheme
-for this token type.
+for this token scheme.
 
 =head2 http_extract  I<[Resource Server]>
 
- ($error, [@token_as_used],...) = type->http_extract($request_in)
+ ($error, [@token_as_used],...) = $scheme->http_extract($request_in)
 
 extracts I<all> apparent tokens present in an incoming request that
-conform to this token type's transport specification.
+conform to this token scheme's transport specification.
 
 Ideally, there would be at most one valid token in any given request,
 however, other headers or parameters may, depending on how the
@@ -438,7 +443,7 @@ forge/discover token values.
 =head2 token_validate  I<[Resource Server], [Refresh Tokens/Authcodes]>
 
  ($error, $issue_time, $expires_in, @bindings)
-   = type->token_validate(@token_as_used);
+   = $scheme->token_validate(@token_as_used);
 
 Decodes the token, retrieves expiration and binding information, and
 verifies any signature/hmac-values that may be included in the token
@@ -449,7 +454,7 @@ expiration time and for checking correctness of binding values.
 
 =head2 vtable_pushed  I<[Resource Server]>
 
- ($error) = type->vtable_pushed(@push_entry)
+ ($error) = $scheme->vtable_pushed(@push_entry)
 
 For use in C<authserv_push> handlers (see ...).  Here I<@push_entry> is an
 opaque sequence of strings extracted from the C<authserv_push> message 
@@ -457,7 +462,7 @@ constructed and sent by B<vtable_push>.
 
 =head2 vtable_dump  I<[Authorization Server]>
 
- @pull_response = $token_type->vtable_dump(@pull_query)
+ @pull_response = $token_scheme->vtable_dump(@pull_query)
 
 For use in C<resource_pull> handlers (see ...).  Here I<@pull_query> is
 an opaque sequence of strings extracted from the pull request
