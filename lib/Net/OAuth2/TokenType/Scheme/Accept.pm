@@ -7,9 +7,8 @@ package Net::OAuth2::TokenType::Scheme::Accept;
 use Net::OAuth2::TokenType::Option::Defines;
 
 # FUNCTION token_accept
-#   token[, issue_attributes] -> token[, send_attributes]
+#   token[, issue_attributes] -> error, token[, save_attributes]
 # SUMMARY
-#   in the vast majority of cases
 #   issue_attributes and send_attributes are the same
 # IMPLEMENTATION token_accept_default
 #   (accept_)token_type_re = ''
@@ -26,6 +25,30 @@ Default_Value accept_keep => 'everything';
 
 sub pkg_token_accept_default {
     my __PACKAGE__ $self = shift;
+
+    # these two cases are probably not necessary.  In fact, now that I
+    # think about it 'token_accept' for refresh tokens and authcodes
+    # should be completely inaccessible to clients, but maybe I'll
+    # change my mind about this...
+
+    if ($self->uses('usage') eq 'authcode') {
+        # authcode is the token string ONLY
+        $self->install( token_accept => sub { return $_[0]; } );
+        return $self;
+    }
+
+    # ditto...
+    if ($self->uses('usage') eq 'refresh') {
+        # refresh is the token string ONLY
+        $self->install( token_accept => sub { 
+            my ($token, %params) = @_;
+            $token = $params{refresh_token} if  $params{refresh_token};
+            return $token;
+        });
+        return $self;
+    }
+
+    # now for the real stuff
     my ($remove, $keep, $needs, $hook) = $self->uses_params
       ('accept' => \@_, qw(remove keep needs hook));
     my $token_type = $self->uses('token_type');
