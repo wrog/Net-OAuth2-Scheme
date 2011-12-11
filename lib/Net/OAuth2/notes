@@ -1,0 +1,82 @@
+# what the various players need
+# @token_issue = (access_token_string, issue_attributes...)
+# @token_send  = (access_token_string, send_attributes...)
+# bindings... = , scope, client_id[, extensions...?]
+
+# What the Client needs
+#      token_accept
+#        @token_issue -> @token_send
+#      http_insert
+#        HTTP::Request, @token_send -> modified request
+#
+
+# What the Resource server needs
+#      http_extract
+#        Plack::Request -> list of [@token_send]
+#      token_validate
+#        @token_send -> valid?, issue_time, expires_in, bindings...
+#
+
+# What the Authorization server needs
+#      token_create
+#        issue_time, expires_in, bindings... -> @token_issue
+#
+
+# refresh tokens are weird since the Authorization server
+# needs to be able to receive them as well as create them,
+# but also the transport mechanism is pre-defined
+# so we do not need http_insert/extract, hence...
+
+
+# What the Authorization server needs per Resource server
+#   validator_id generation scheme
+#     (A) generate: server_id, otp -> validator_id
+#     (R) validator_server_id: validator_id -> server_id
+#   server_id management
+#     (A) server_id: -> server_id
+#     (R) set_server_id: server_id ->
+# If resource server is dealing with multiple authentication servers
+# validator ids need from different servers need to be distinct and in some cases the server needs to be identifiable
+# choices:
+#   server_id_none
+#   server_id_prefix => 4
+#
+#   vtable management
+#     (A) vtable_insert  validator_id, expiration, @validator -> ;
+#     (A) vtable_dump    -> list of [validator_id, expiration, @validator]
+#     (R) vtable_lookup  validator_id -> expiration, @validator
+
+
+#   token factory
+#     server_id, vtable_insert, validator_id, @secrets -> create_token
+#       vtable_insert : validator_id, @validator -> ;
+#       if vtable_insert and validator_id are both used
+#       then validator_id => (@secrets...) is assumed
+#        to have already been inserted.
+#   create_token
+#     (expiration, @scope) -> @token
+#     may add an entry to vtable
+
+#  needs to cover
+#    self-validating bearer tokens that depend on a shared secret
+#    one-time-pad bearer tokens that are individually cached/listed
+#    hmac tokens that are individually cached/listed by id
+
+# Option values are expected to be CONSTANT.
+# It is an error to install() something twice.
+#
+# Also, no closures returned should refer to $self directly
+# or indirectly; we want the TokenScheme object to able to
+# self-destruct as soon as we have the methods we need
+
+# package TokenType::Scheme::Stuff;
+# use TokenType::Scheme::Base;
+#
+# 1;
+
+# package MyTokenFactory;
+# use parent TokenType::Scheme::Stuff;
+# use parent TokenType::Scheme::MoreStuff;
+
+
+
