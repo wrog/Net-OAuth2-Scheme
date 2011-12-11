@@ -91,6 +91,7 @@ sub pkg_random_isaac {
     $self->install( random => sub { $rng->bytes(@_) });
 }
 
+1;
 
 =pod
 

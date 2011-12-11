@@ -4,7 +4,7 @@ use warnings;
 package Net::OAuth2::TokenType::Factory;
 # ABSTRACT: a factory for token types
 
-use parent 'Net::OAuth2::TokenType::Options::Builder';
+use parent 'Net::OAuth2::TokenType::Option::Builder';
 
 use parent 'Net::OAuth2::TokenType::Scheme::Root';
 use parent 'Net::OAuth2::TokenType::Scheme::Transport';

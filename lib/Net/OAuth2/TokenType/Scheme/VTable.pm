@@ -112,7 +112,7 @@ sub pkg_vtable_resource_pull {
             my $v_id = shift;
             my ($error, @found) = $vtable_get->(${v_id});
             unless ($error || @found) {
-                $error = $vtable_load->($vtable_pull->($vtable_query->()));
+                ($error) = $vtable_load->($vtable_pull->($vtable_query->()));
                 return $error if $error;
                 ($error,@found) = $vtable_get->(${v_id});
             }
@@ -203,6 +203,9 @@ sub pkg_vtable_pull_queue_default {
             }
             # remove empty batches from %$vpqueue
             delete @{$vpqueue}{grep {!@{$vpqueue->{$_}}} keys %{$vpqueue}};
+
+            # never fails (?)
+            return ();
         });
 
         $self->install( vtable_dump => sub {
@@ -231,7 +234,7 @@ sub pkg_vtable_pull_queue_default {
             # send everything
             my @r = ();
             push @r, @$_ for values %{$vpqueue};
-            return ($now, \@r);
+            return (undef, $now, \@r);
         });
     }
     if ($self->is_resource_server) {
@@ -243,12 +246,13 @@ sub pkg_vtable_pull_queue_default {
                            ? $last_recv - 1 : $last_recv));
         });
         $self->install( vtable_load => sub {
-            my ($now, $recvd) = @_;
+            my ($error, $now, $recvd) = @_;
+            return ($error) if $error;
             for my $entry (@$recvd) {
                 $vtable_put->(@$entry);
             }
             $last_recv = $now;
-            return scalar(@$recvd);
+            return (undef, scalar(@$recvd));
         });
     }
     return $self;

@@ -9,15 +9,17 @@ our $Factory_Class = 'Net::OAuth2::TokenType::Factory';
 my $This = 'a';
 
 sub new {
+    my $class = shift;
     # really, no one should ever need to subclass this,
     # since the $Factory_Class is endlessly customizable
-    # But since I've now said that, someone will find a need to do so,
+    # But now that I've said that, someone will find an excuse,
     # so we'll just follow the paradigm anyway...
-    my $class = shift;
+
     my $factory_class;
     if ($_[0] eq 'factory') {
         (undef, $factory_class) = splice(@_,0,2); # shift shift
-        # yes factory => classname has to be first; deal
+        # yes, this means factory => classname has to be first;
+        # cope...
     }
     else {
         $factory_class = $Factory_Class;

@@ -7,10 +7,15 @@ package Net::OAuth2::TokenType::HmacUtil;
 use Digest::SHA ();
 use MIME::Base64 qw(encode_base64 decode_base64);
 
-use parent qw( Exporter );
-our @EXPORT_OK = qw(hmac_name_to_len_fn sign_binary unsign_binary encode_base64url decode_base64url encode_plainstring decode_plainstring);
+use parent qw(Exporter);
+our @EXPORT_OK = qw(
+  hmac_name_to_len_fn
+  sign_binary        unsign_binary
+  encode_base64url   decode_base64url
+  encode_plainstring decode_plainstring
+);
 
-our @Known_HMACs = 
+our @Known_HMACs =
  # list of [id, key_length, underscored_name, dashed-name, hmac_function]
 (
  # NIST's HMAC-SHA functions
@@ -112,7 +117,7 @@ sub unsign_binary {
       return (undef, "unknown hash function id: $id");
     $extra = '' unless defined $extra;
     return ($value)
-      if length($hash) == $keylen && 
+      if length($hash) == $keylen &&
         timing_indep_eq($hash, $fn->($secret, $value . $extra), $keylen);
     # implement extensions here but for now, just fail
     return (undef, 'bad hash value');
@@ -170,7 +175,7 @@ sub decode_plainstring {
     my @ords = ();
     for my $c (reverse split '', $_[0]) {
         @ords = map {$_*92} @ords;
-        my $o = ord($c); 
+        my $o = ord($c);
         $ords[0] += ($o >= 93 ? $o-35 : $o >= 35 ? $o-34 : 0);
         my $rc = 0;
         for my $i (0 .. $#ords) {
