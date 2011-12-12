@@ -126,7 +126,7 @@ sub pkg_vtable_resource_pull {
 # DEFINES
 #  vtable_put : id,expiration,@stuff ->;
 #  vtable_get : id -> expiration,@stuff
-Define_Group vtable_cache => 'vtable_cache_object',
+Define_Group vtable_cache => 'object',
   qw(vtable_put vtable_get);
 
 

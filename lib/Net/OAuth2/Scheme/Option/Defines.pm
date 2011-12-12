@@ -25,6 +25,7 @@ sub _mark {
 sub _is_marked {
     my $class = shift;
     no strict 'refs';
+    no warnings 'uninitialized';
     return ${"${class}::_Has_Defaults_Or_Groups"} == \ $_marker;
 }
 
@@ -35,7 +36,7 @@ sub All_Classes {
     my $class = shift;
     no strict 'refs';
     return
-      ((map { _All_Classes($_) } @{"${class}::ISA"}), 
+      ((map { All_Classes($_) } @{"${class}::ISA"}),
        (_is_marked($class) ? ($class) : ()));
 }
 
@@ -57,14 +58,14 @@ sub Define_Group {
 
     # if no keys given, assume single-option group
     # with option name as the group name
-    @keys = ($gname) unless @keys;  
+    @keys = ($gname) unless @keys;
 
     no strict 'refs';
     ${"${class}::Group"}{$gname} =
       +{
         keys => \@keys,
         (defined($default)
-         ? (default => "pkg_${gname}_${default}")
+         ? (default => ["pkg_${gname}_${default}"])
          : ()),
        };
     # suppress warning about Group only being used once
@@ -93,9 +94,9 @@ This is B<not> a base class.
 
 =item B<Define_Group> C<< groupname => $default, qw(name1 name2 ...) >>
 
-Defines a group of option names (C<name1 name2 ...>) such that 
+Defines a group of option names (C<name1 name2 ...>) such that
 if any one of them is needed, the installer for C<groupname> is run
-to provide values for them.  
+to provide values for them.
 
 C<$default>, if defined, specifies the default installer method
 (C<< pkg_groupname_$default >>)
@@ -107,7 +108,7 @@ Specifies that the default value for option C<name> is C<$value>.
 =item B<All_Classes>(C<$class>)
 
 Return a list of all classes in the inheritance hierarchy of C<$class>
-that define any groups or default values.
+that define any option groups or default values.
 
 =back
 

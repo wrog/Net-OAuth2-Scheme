@@ -8,6 +8,8 @@ use Net::OAuth2::Scheme::Option::Defines;
 use parent 'Net::OAuth2::Scheme::Mixin::Bearer';
 use parent 'Net::OAuth2::Scheme::Mixin::HMac';
 
+use URI::Escape;
+
 # transport helper functions
 
 # INTERFACE transport
@@ -172,7 +174,9 @@ sub _put_body_params {
     $http_req->add_content
       ((defined($content) && length($content) ?  "&" : "") .
        join('', map {(($i=!$i)?'=':'').uri_escape($_)} @_));
+    $http_req->content_length(length($http_req->content));
 }
+
 sub _REQUIRED_CTYPE { 'application/x-www-form-urlencoded' };
 
 sub http_parameter_inserter {
@@ -216,7 +220,7 @@ sub http_parameter_inserter {
             my $method = $http_req->method;
 
             if (((! defined $method) || $method !~ m{\A(?:GET|HEAD)\z})
-                && ((! defined $ctype) && ($ctype eq _REQUIRED_CTYPE))) {
+                && ((! defined $ctype) || ($ctype eq _REQUIRED_CTYPE))) {
                 # we can cram them into the body, yay...
                 $http_req->method('POST') unless $method;
                 $http_req->content_type(_REQUIRED_CTYPE) unless $ctype;

@@ -1,5 +1,3 @@
-/Net-OAuth2-TokenType*
+/Net-OAuth2-Scheme*
 .build
 *.swp
-*~
-#*

@@ -26,7 +26,7 @@ my %defined_context = map {$_,1} qw(
 {
     no strict 'refs';
     for my $whatever (keys %defined_context) {
-        ${"is_${whatever}::"}{CODE} = sub {
+        *{"is_${whatever}"} = sub () {
             # assume not if we have not otherwise said so.
             return $_[0]->uses("is_$whatever", 0);
         };
@@ -51,7 +51,7 @@ sub pkg_root_setup {
         $self->ensure(is_auth_server => 1);
         $self->ensure(is_resource_server => 1);
     }
-    $self->install(top => 'done');
+    $self->install(root => 'done');
 
     $self->export
       (

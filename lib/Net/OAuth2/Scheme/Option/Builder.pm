@@ -37,7 +37,10 @@ sub new {
     }
     for my $o (keys %opts) {
         if (my $i = $group{$o}) {
-            $self->{pkg}->{$_} = "pkg_${i}_$opts{$o}"
+            my $impl = $opts{$o};
+            my @ispec = ref($impl) eq 'ARRAY' ? @{$impl} : ($impl);
+            $ispec[0] = "pkg_${o}_$ispec[0]";
+            $self->{pkg}->{$_} = \@ispec
               for @{$i->{keys}};
         }
         else {
@@ -45,12 +48,17 @@ sub new {
         }
     }
 
-    $self->{defaults} = 
+    $self->{defaults} =
       $self->{value}->{defaults_all}
         ||
       { _all_defaults(ref($self)),
         %{$self->{value}->{defaults} || {}},
       };
+    return $self;
+}
+
+sub DESTROY {
+    print STDERR "Boom!";
 }
 
 sub installed {
@@ -181,7 +189,7 @@ sub all_exports {
     $self->install(gearshift_coast => sub {
        ...
     }
-  }  
+  }
 
   sub pkg_gearshift_sturmey_archer {
     ...
@@ -206,18 +214,18 @@ Installs a value for option C<name>.
 Gets the value for option C<name>.
 
 If no value has yet been intalled,
-installs a default value if one has been specified either 
-here (C<$default>) or elsewhere 
+installs a default value if one has been specified either
+here (C<$default>) or elsewhere
 (e.g., using the C<defaults> group or B<Define_value>)
 
 Otherwise, C<name> must be part of some group,
-so we see which implementation for that group 
-has been chosen and invoke it to set C<name> 
+so we see which implementation for that group
+has been chosen and invoke it to set C<name>
 (and whatever else) so that we can get a value.
 
 =item B<export> C<'name'>
 
-Does B<uses>(C<'name'>) then adds C<'name'> 
+Does B<uses>(C<'name'>) then adds C<'name'>
 to the list of exported options.
 
 =item B<ensure> (C<< name => $value >>)
@@ -227,7 +235,7 @@ then dies if option C<name> does not, in fact, have the value C<$value>.
 
 =item B<uses_all> (C<<qw( name1 name2 ... )>>)
 
-Equivalent to B<uses>(C<name1>), B<uses>(C<name2>), etc..., 
+Equivalent to B<uses>(C<name1>), B<uses>(C<name2>), etc...,
 returning the list of corresponding values.
 
 =item B<uses_param>

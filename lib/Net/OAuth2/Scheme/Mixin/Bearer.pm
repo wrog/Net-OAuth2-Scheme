@@ -43,7 +43,7 @@ sub pkg_transport_bearer {
         $self->install( accept_needs => [] );
         $self->install( accept_hook => sub {} );
         if ($self->uses_param(bearer => \@_, 'client_uses_param')) {
-            Carp::croak("bearer_client_no_header requires bearer_allow_(body|uri)")
+            Carp::croak("bearer_client_uses_param requires bearer_allow_(body|uri)")
                 unless $body_or_uri;
             $self->http_parameter_inserter($body_or_uri, $param_name, sub { $_[0] });
         }

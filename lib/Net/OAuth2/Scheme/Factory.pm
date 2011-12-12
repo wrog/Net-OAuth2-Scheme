@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 package Net::OAuth2::Scheme::Factory;
-# ABSTRACT: a factory for schemes
+# ABSTRACT: the default factory for token schemes
 
 use parent 'Net::OAuth2::Scheme::Option::Builder';
 
@@ -31,7 +31,8 @@ use parent 'Net::OAuth2::Scheme::Mixin::NextID';
      transport => 'hmac_http',
   )
 
-  my %recipe_common = (
+  # more stuff for authorization servers and resource servers
+  my %recipe_common = ( 
      %recipe_client,
      format => 'bearer_handle', # or 'bearer_signed'
      ... or ...
@@ -45,9 +46,10 @@ use parent 'Net::OAuth2::Scheme::Mixin::NextID';
      vtable => 'resource_pull',
   );
 
+  # the completely specialized versions:
   my %recipe_auth = (
      %recipe_common,
-     context => 'authorization_server',
+     context => 'auth_server',
 
      # if authserv_push
      vtable_push => \&my_push_method,
@@ -74,91 +76,40 @@ use parent 'Net::OAuth2::Scheme::Mixin::NextID';
      cache => $private_cache_object,  # only accessible to authserver(s)
   );
 
-  sub SCHEME_CLASS { 'Net::OAuth2::Scheme' }
-
   ######
   # client code
 
-  my $access_scheme = SCHEME_CLASS->new(%recipe_client);
+  my $access_scheme = Net::OAuth2::Scheme->new(%recipe_client);
 
   ######
   # authserver code
 
-  my $access_scheme   = SCHEME_CLASS->new(%recipe_auth);
-  my $refresh_scheme  = SCHEME_CLASS->new(%recipe_refresh);
-  my $authcode_scheme = SCHEME_CLASS->new(%recipe_authcode);
+  my $access_scheme   = Net::OAuth2::Scheme->new(%recipe_auth);
+  my $refresh_scheme  = Net::OAuth2::Scheme->new(%recipe_refresh);
+  my $authcode_scheme = Net::OAuth2::Scheme->new(%recipe_authcode);
 
   ######
   # resource code
 
-  my $access_scheme = SCHEME_CLASS->new(%recipe_resource);
-
+  my $access_scheme = Net::OAuth2::Scheme->new(%recipe_resource);
 
 =head1 DESCRIPTION
 
-A TypeFactory is an ephemeral object that takes a collection of option
-settings representing a specific token scheme, i.e., a recipe that
-specifies some or all of the following
+The token scheme factory object is created by
+L<Net::OAuth2::Scheme>-E<gt>B<new>() to parse the option settings
+given and produce the specialized methods that the resulting scheme
+object will need.  It is an ephemeral object that self-destructs the
+moment the scheme object is complete.
 
-=over
-
-=item *
-
-use (access vs. refresh vs. authorization code),
-
-=item *
-
-transport method and format
-
-=item *
-
-resource identifier or related family thereof,
-
-=item *
-
-client identifier or capability class,
-
-=item *
-
-resource/authorization server secret sharing paradigm
-(i.e., type of "validator table" or "vtable"),
-
-=back
-
-and then generates a scheme object for the particular purpose and
-context for which it is needed, whether this be an access token scheme
-for a client, authorization server, or resource server, or a refresh
-token scheme or an authorization code scheme
-
-The scheme object (see L<Net::OAuth2::Scheme>) produced then has
-the methods for handling the stages of the token lifecycle, i.e.,
-
-=over
-
-=item *
-
-Authorization Server does "token_create" to issue the token
-
-=item *
-
-Client does "token_accept" when receiving it
-
-=item *
-
-Client does "http_insert" to get it into a resource API message,
-
-=item *
-
-Resource Server does "http_extract" and then "validate" (which are
-two separate methods because for refresh tokens and authorization
-codes, "http_extract" is not needed; the Authorization Server just
-needs to be able do "validate" by itself).
-
-=back
-
-plus whatever additional hooks are needed to support the communication
-of validation secrets between the authorization server and the
-resource server.
+You should not need to create factory objects yourself, though it I<is>
+intended for you to be able to create your own factory I<classes> with
+their own option groups and implementation methods for, e.g., new
+token formats, transport schemes, etc.  See
+L<Net::OAuth2::Scheme::Option::Builder> and
+L<Net::OAuth2::Scheme::Option::Defines> and the various mixins 
+L<Net::OAuth2::Scheme::Mixin::*> to get a sense of how to do this
+(... though also be aware that this part of the world may be in a bit
+of flux for a while...)
 
 =head1 KINDS OF OPTIONS
 
@@ -168,39 +119,28 @@ There will generally be two kinds of option settings
 
 =item I<option_name> C<=E<gt>> I<value> 
 
-which directly sets the value of the specified option,
+which directly sets the value of the specified option.  
 
 =item I<group_name> C<=E<gt>> I<implementation> 
 
-which indicates that if some option value belonging to
-I<group_name> is actually needed and no value has yet
-been set nor any default provided, then the given 
-I<implementation> should be installed to set all of 
-the option values belonging to I<group_name>.  
+which has the effect of setting an entire group of options.
+(Options that are members of a group can be set individually,
+but in most cases you shouldn't, and if you do, you need to
+be sure you set all of them).
 
-This will often have the effect of requiring other option values,
-which then might cause other implementations to be installed.
-Implementations may also designate "exports" that will then 
-appear as additional methods on the scheme object.
-
-I<implementation> is usually a string indicating the name of the method to be 
-called to instantiate the values of the options in I<group_name>
-(C<pkg_>I<group_name>C<_>I<implementation>, e.g., 
-C<< transport => bearer >> specifies that
-the C<< pkg_transport_bearer() >> method from L<TokenType::Scheme::Bearer>
-should be called if the C<transport> options are needed)
-
-I<implementation> can also be an arrayref, in which case the first element
-should be a string interpreted as above and the remaining elements are expected to
-be alternating keywords and values, e.g., 
+I<implementation> is either a string naming the implementation choice
+that this group represents or an arrayref whose first element is said
+implementation choice and the remaining elements are alternating
+keyword-value pairs, e.g.,
 
   transport => ['bearer',
                  param => 'oauth_second',
                  allow_uri => 1]
 
-which causes additional options to be set prior to invoking the implementation.
-Generally each keyword will be the name of an option with some prefix stripped.
-E.g., the previous example is equivalent to
+which specify the settings of related options that the implementation
+directly depends on.  Generally each keyword here will be the name of
+some option with some prefix stripped.  E.g., the previous example is
+equivalent to specifying
 
   transport => 'bearer',
   bearer_param => 'oauth_second',
@@ -210,17 +150,34 @@ E.g., the previous example is equivalent to
 
 Group settings and single-option settings can be given in any order;
 nothing is executed until the context/usage is determined and a scheme
-object is to be produced.
+object needs to be produced.
 
-Note however that the usual rules for initialing perl hashes still apply,
-e.g., if you specify an option setting twice in the same call, 
-only the second one matters
+Note, however, that the usual rules for initializing perl hashes still
+apply, e.g., if you specify an option setting twice in the same
+parameter list, only the second one matters.
 
+An option setting is regarded as I<constant>, i.e., once an option
+value is actually set, it is an error to attempt to set it differently
+value later (group implementations I<can> do this, which will then
+abort your scheme creation).
 
-=head1 USAGE OPTIONS
+You can use the C<defaults> option (or C<defaults_all> if you are
+completely crazy) to change the defaults for certain options without
+actually setting them (if say, one of the existing defaults turns out
+to be stupid, or you are building a scheme template into which Other
+People will be inserting Actual Settings later...).
 
-There are two option settings that determine where and how tokens/codes
-produced according to this scheme can used
+=head1 OPTIONS
+
+Generally you will have to set one of C<usage> or C<context>.
+
+Specifying C<transport> is usually enough for client implementations.
+Authorization and resource servers will also need at least C<format>
+and C<vtable>.  
+
+Certain option settings will entail the presence of others (e.g., all
+current versions of C<vtable> require a setting for C<cache>) which
+will be noted below.
 
 =head2 usage
 
@@ -228,80 +185,77 @@ produced according to this scheme can used
 
 =item C<access>
 
-(Default.)  Indicates that this is a token used for access to resources.  
+(Default.)  This scheme provides access token methods for use in a
+client, authorization server, or resource server implementation.
 
 Note that in OAuth2, clients and resource servers do not, in fact,
-(currently) need to see other kinds of scheme objects.  (Yes, client
-implementations do handle refresh tokens and authorization codes, but
-there they are simply opaque strings and all aspects of transport are
-already nailed down by the OAuth2 protocol itself, so there are no
-actual methods that need to be made available.)
+(currently) need to see other kinds of scheme objects.  While client
+implementations do need to handle refresh tokens and authorization
+codes, in that context they are simply opaque strings and questions of
+transport that would normally be of interest are already completely
+determined by the OAuth2 protocol itself, so there are no actual
+methods that need to be made available there.
 
 =item C<refresh>
 
-This type is used for refresh tokens.
+This scheme provides refresh token methods 
+for use in an authorization server implementation.
 
-Provides at least B<token_create> and B<token_validate>.
-(Since the OAuth 2.0 specification dictates how refresh tokens appear
-in requests and responses, there is no need for separate B<http_insert> or
-B<http_extract> methods here.)
-
-In this case, I<both> the authorization server and resource server
-contexts (below) are assumed since the authorization server is both a
-producer and consumer of refresh tokens.  This means that any option
-settings that would otherwise only be necessary for a resource server
-implementation will be required here.
+The methods B<token_create> and B<token_validate> are provided.
 
 =item C<authcode>
 
-This type is used for authorization codes.
+This scheme provides authorization codes methods
+for use in an authorization server implementation.
 
-This supplies the same methods and entails the same context assumptions 
-as for refresh tokens (above).
+The methods B<token_create> and B<token_validate> are provided.
 
-(Yes, the OAuth 2.0 specification does not actually consider
-authorization codes to be tokens, but from a functional point of view
-they essentially are, i.e., most of the same methods are needed,
-therefore this is as good a place as any to obtain implementations of
-them.)
+(authorization code schemes currently differ from refresh token
+schemes only in choice of binding information, which is outside the
+scope of these modules, so these schemes are functionally identical,
+for now...)
 
 =back
 
 =head2 context
 
-For access-token schemes, the context value can be one of the following:
+For access-token schemes, the implementation context needs to be specified.
+This can be one or more of the following:
 
 =over
 
 =item C<client>
 
 This scheme object is for use in a client implementation.
-Provides at least B<token_accept> and B<http_insert>.
+The methods B<token_accept> and B<http_insert> will be provided.
 
 =item C<resource_server>
 
 This scheme object is for use in a resource server implementation.
-Provides at least B<http_extract> and B<token_validate>.
+The methods B<http_extract> and B<token_validate> will be provided.
 
-=item C<authorization_server>
+=item C<auth_server>
 
 This scheme object is for use in an authorization server implementation.
-Provides at least B<token_create>.
+The B<token_create> method will be provided.
 
 =back
 
-One may also supply a listref, e.g.,
+This option value can either be as single string or a listref in the case of 
+combined implementations where the same process is serving multiple 
+roles for whatever reason.
 
- context => ['authorization_server','resource_server']
+Note that while refresh token and authorization code schemes are only
+needed within an authorization server implementation, since the same
+server also has to be able to I<receive> these tokens/codes, the
+resource-side methods need to be enabled.  Thus the scheme object is
+produced (mostly) as if
 
-for a combined implementation where authorization server and resource
-server are in the same process.  In this case, the resulting token
-type will have at least the methods B<token_create>, B<http_extract>,
-B<token_validate> and possibly others.
+ context => [qw(auth_server, resource_server)]
 
-=head1 OPTION GROUPS
-
-You will need to provide settings for at least C<transport>, C<format>, and C<cache>.
+were specified, meaning that any option settings that would otherwise
+only be necessary for a resource server implementation will be
+required in these cases as well.
 
 =head2 transport
 
@@ -349,9 +303,10 @@ individually to the resource server.
 =item C<bearer_signed>
 
 Use a "assertion-style" bearer token where the token string includes
-all binding values, a nonce, and a hash value keyed on a shared secret
-that effectively signs everything.  Only the shared secret needs to be
-kept in the vtable and communicated separately to the resource server.
+some or all of the binding values, a nonce, and a hash value keyed on
+a shared secret that effectively signs everything.  Only the shared
+secret and remaining binding values needs to be kept in the vtable and
+communicated separately to the resource server.
 
 =item C<hmac_http>
 
@@ -380,7 +335,8 @@ There are three implementation frameworks to choose from:
 
 =item C<shared_cache>
 
-The cache is an actual (secure) shared cache, whether this be, say,
+The cache is an actual (secure) shared cache, accessible to both the
+authorization server and the resource server, whether this be, say,
 
 =over
 
@@ -404,7 +360,7 @@ authorization and resource servers to either be on the same host.
 =item *
 
 some kind of shared internal reference in the case where the
-authorization and resource servers are in the same process.
+authorization and resource requests are handled by the same process.
 
 =back
 
@@ -421,12 +377,13 @@ us.
 There is a cache, but it is local/private to the resource server.
 
 C<vtable_insert> by the authorization server is actually
-C<vtable_push> which sends the new entry to the resource server by
+B<vtable_push> which sends the new entry to the resource server by
 some means.  A push-handler in the resource server receives the entry
-and calls C<vtable_pushed> to insert it into the actual cache, and
+and calls B<vtable_pushed> to insert it into the actual cache, and
 either B<token_create> blocks until the push response is received or
-(more likely) we just assume the resource server has enough of a head
-start that the insertion will be completed by the time the client gets
+(if you care about speed and can tolerate the occasional race condition
+failure) we just assume the resource server has enough of a head start
+that the insertion will be completed by the time the client gets
 around to actually using the token.
 
 C<vtable_lookup> by the resource server is then just C<vtable_get>.
@@ -438,8 +395,8 @@ response it received.
 
 The function B<vtable_pushed> is available on the scheme object to the
 resource server implementation.  The push request handler is expected
-to call it on the value sent by B<vtable_push> and send back whatever
-return value (null or error code) it gets.
+to call it on the value sent by B<vtable_push>, sending back as a response
+whatever return value (null or error code) it gets.
 
 =item C<resource_pull>
 
@@ -448,13 +405,13 @@ There is a cache, but it is (again) local/private to the resource server.
 C<vtable_insert> by the authorization server does C<vtable_enqueue>,
 which just places the entry on an internal queue.
 
-C<vtable_lookup> does the following
+C<vtable_lookup>, when called by the resource server, does the following
 
 =over
 
 =item *
 
-the resource server first does a C<vtable_get> which may succeed or fail.  
+a call to C<vtable_get>, which may succeed or fail.  
 Failure is immediately followed by
 
 =item *

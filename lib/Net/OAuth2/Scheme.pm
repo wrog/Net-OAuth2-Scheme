@@ -4,41 +4,60 @@ use strict;
 package Net::OAuth2::Scheme;
 # ABSTRACT: Token scheme objects and definition framework for OAuth 2.0
 
-our %_all = ();
 our $Factory_Class = 'Net::OAuth2::Scheme::Factory';
-my $This = 'a';
+
+# some inside_out object support
+# ours are a little weird because our object data are
+# the option values that live in closures
+# so the only thing we put here are the methods.
+my %methods_hash = (); # class -> methodname -> tag -> closure
+my %next_tag = ();
+my %free_tags = ();
+our $Temp;
 
 sub new {
     my $class = shift;
-    # really, no one should ever need to subclass this,
-    # since the $Factory_Class is endlessly customizable
-    # But now that I've said that, someone will find an excuse,
-    # so we'll just follow the paradigm anyway...
+    # I'm still not convinced there will ever be subclasses;
+    # makes much more sense to subclass or replace the factory
+    # class; but now that I've said that, someone will find an
+    # excuse, so we'll just follow the paradigm anyway...
 
     my $factory_class;
     if ($_[0] eq 'factory') {
         (undef, $factory_class) = splice(@_,0,2); # shift shift
-        # yes, this means factory => classname has to be first;
+        # yes, this means (factory => classname) has to be first;
         # cope...
     }
     else {
         $factory_class = $Factory_Class;
     }
+    eval "require $factory_class";
     my $factory = $factory_class->new(@_);
 
     # start the cascade of methods being implemented
     $factory->uses('root');
 
-    # build the object, install the method definitions
-    my $tag = ++$This;
+    # build the object, make sure the method definitions are there
+    my $tag =
+      pop @{$free_tags{$class} ||= []}
+      || ($next_tag{$class} ||= 'a')++;
     for my $method ($factory->all_exports) {
-        no strict 'refs';
-        ${"${class}::$method"}{$tag} = $factory->uses($method);
-        ${"${class}::${method}::"}{CODE} ||= sub {
-              my $self = shift; 
-              return ${$method}{$$self}->(@_);
-          };
-        $_all{$method}++;
+        unless ($methods_hash{$class}{$method}) {
+            # mom, dad, don't touch it, it's EVIL
+            # but we stay completely strict... hahahahahaha
+            eval <<END ;
+package ${class};
+my \%${method} = ();
+sub ${method} {
+    my \$self = shift;
+    return \$${method}\{\$\$self}->(\@_);
+}
+\$@{[ __PACKAGE__ . '::Temp']} = \\\%${method};
+END
+            $methods_hash{$class}{$method} = $Temp;
+            undef $Temp;
+        }
+        $methods_hash{$class}{$method}{$tag} = $factory->uses($method);
     }
     return bless \ $tag, $class;
 }
@@ -46,37 +65,118 @@ sub new {
 sub DESTROY {
     my $self = shift;
     my $class = ref($self);
-    for my $method (keys %_all) {
-        no strict 'refs';
-        delete ${"${class}::$method"}{$$self};
+    for my $hash (values %{$methods_hash{$class}}) {
+        delete $hash->{$$self};
     }
+    push @{$free_tags{$class}}, $$self;
 }
-
 
 1;
 
-__END__
+=pod
 
 =head1 DESCRIPTION
 
-A token scheme object represents a particular combination of
+A token scheme is a set of specifications for some or all of the following
 
-providing token creation, validation, and transmission methods
-that are specialized for the given situation.
+=over
 
-Note that for the purposes of this module, authorization codes are
-essentially another kind of token and thus can likewise have token
-scheme objects for manipulating them.
+=item *
+
+token transport method (http headers vs. body or URI parameters)
+
+=item *
+
+token format/encoding (handle vs. assertion vs. something else)
+including consideration of how much of the binding information is
+included with the token vs. sent out of band
+
+=item *
+
+communication model ("validator table" a.k.a. "vtable") for sharing
+token validation secrets and out-of-band binding information between
+the authorization server and the resource server
+
+=item *
+
+ID/key generation for the vtable, which matters for handle-style
+tokens that need to have unpredictable IDs, and which also matters for
+the sake of being able to have multiple authorization server instances
+(for scaling purposes) and/or multiple resource servers playing in the 
+same pool without clobbering each other.
+
+=back
+
+specialized for
+
+=over
+
+=item *
+
+a particular usage (access token vs. refresh token vs. authorization code)
+
+=item *
+
+a particular resource (whether this be a single endpoint or a family
+thereof that want to be recognizing the same tokens),
+
+=item *
+
+a particular client profile or deployment (i.e., if it has been
+decided that different client groups using the same resource should be
+using different styles of tokens for whatever reason),
+
+=item *
+
+a particular implementation context (client vs. authorization server vs. resource server)
+
+=back
+
+The methods on the scheme object are primarily the methods for producing and
+handling tokens in the various stages of the token lifecycle, i.e.,
+
+=over
+
+=item *
+
+an authorization server calls B<token_create> to issue the token and send validation information to the resource server(s) as needed
+
+=item *
+
+a client applies B<token_accept> to the received token to determine (to
+the extent possible) whether it is of the expected scheme and then
+save whatever needs to be saved for later use
+
+=item *
+
+a client uses B<http_insert> and the saved token information to insert a
+token into a resource API message as authorization,
+
+=item *
+
+a resource server does B<http_extract> to obtain whatever tokens were
+present, and then B<validate> to verify them and obtain their
+respective binding information.  These are two separate methods
+because (1) handling of multiple apparent tokens in a message will
+depend on the resource API and is thus outside the scope of these
+modules, and (2) for refresh tokens and authorization codes,
+B<http_extract> is not actually needed.
+
+=back
+
+but there will sometimes be additional hooks a needed by the
+communication model (see discussion of B<vtable_push> and
+B<vtable_pull> below).
 
 =head1 SYNOPSIS
 
-Exactly how this would look depends on the respective server
-frameworks in use, but...
+Exactly how the code would look depends on the respective server
+frameworks in use and we're trying to be agnostic about that, but...
 
   our %access_options = (... options describing token scheme ...);
 
   ##
-  ## Within a Client Implementation
+  ## Within the Client Implementation
   ##
 
   our $access_scheme = Net::OAuth2::Scheme->new
@@ -102,7 +202,7 @@ frameworks in use, but...
   ... send $request
 
   ##
-  ## Within an Authorization Server Implementation
+  ## Within the Authorization Server Implementation
   ##
 
   our $access_scheme = 
@@ -129,10 +229,10 @@ frameworks in use, but...
   ...respond( access_token => @token, refresh_token => $refresh );
 
   ##
-  ## Within a Resource Server Implementation
+  ## Within the Resource Server Implementation
   ##
 
-  our $token_scheme = Net::OAuth2::Scheme->new
+  our $access_scheme = Net::OAuth2::Scheme->new
     (%access_options, context => 'resource_server');
 
   HANDLER for resource endpoint = sub {
@@ -140,7 +240,7 @@ frameworks in use, but...
 
      # extract tokens from request
      # 
-     my ($error, @tokens_found) = $token_scheme->http_extract($request);
+     my ($error, @tokens_found) = $access_scheme->http_extract($request);
      ... complain if $error
      ... deal with (@tokens_found != 1) as appropriate
 
@@ -149,7 +249,7 @@ frameworks in use, but...
      # validate token
      # 
      my ($error, $issue_time, $expires_in, @bindings) =
-       $token_scheme->token_validate(@token);
+       $access_scheme->token_validate(@token);
 
      ... check $error
      ... check $issue_time + $expires_in vs. time()
@@ -157,14 +257,16 @@ frameworks in use, but...
      ... perform API actions
   }
 
-  ##########################################################
+If one is using an "authorization server push"-style vtable, 
+the code for that will also need to include something like
+
   %access_options = (... vtable => 'authserv_push' ...)
 
   ##
-  ## within an Authorization Server implementation
+  ## within the Authorization Server implementation
   ##
 
-  our $access_token_scheme = 
+  our $access_scheme = 
     Net::OAuth2::Scheme->new
      (%access_options,
       context => 'auth_server',
@@ -181,10 +283,10 @@ frameworks in use, but...
   }
 
   ##
-  ## within a Resource Server implementation
+  ## within the Resource Server implementation
   ##
 
-  our $access_token_scheme = 
+  our $access_scheme = 
     Net::OAuth2::Scheme->new
      (%access_options, context => 'resource_server');
 
@@ -192,20 +294,22 @@ frameworks in use, but...
     ... authenticate authorization server
 
     my @new_entry = ... unserialize from request;
-    my ($error) = $token_scheme->vtable_pushed(@new_entry);
+    my ($error) = $access_scheme->vtable_pushed(@new_entry);
 
     ... return error response if $error
     ... return success 
   }
 
-  ##########################################################
+and if one is using an "resource server pull"-style vtable, 
+the code for that will need to include something like
+
   %access_options = (... vtable => 'resource_pull' ...)
 
   ##
-  ## within an Authorization Server implementation
+  ## within the Authorization Server implementation
   ##
 
-  our $access_token_scheme = 
+  our $access_scheme = 
     Net::OAuth2::Scheme->new
      (%access_options, context => 'auth_server');
 
@@ -213,16 +317,16 @@ frameworks in use, but...
     ... authenticate resource server
 
     my @pull_query = ... unserialize from request
-    my @pull_response = $token_scheme->vtable_dump(@pull_query);
+    my @pull_response = $access_scheme->vtable_dump(@pull_query);
 
     ... return response with serialization of @pull_response
   }
 
   ##
-  ## within a Resource Server implementation
+  ## within the Resource Server implementation
   ##
 
-  our $access_token_scheme = 
+  our $access_scheme = 
     Net::OAuth2::Scheme->new
      (%access_options, 
       context => 'resource_server',
@@ -230,14 +334,13 @@ frameworks in use, but...
      );
 
   sub my_vtable_pull {
-    my @pull_query=@_;
+    my @pull_query = @_;
 
     ... send serialization of @pull_query to resource_pull endpoint
 
     my @pull_response = ... unserialize from response
     return @pull_response;
   }
-
 
 
 =head1 CONSTRUCTOR
@@ -247,10 +350,14 @@ frameworks in use, but...
  $scheme = new(%scheme_options);
  $scheme = new(factory => $factory_class, %scheme_options);
 
-See L<Net::OAuth::Scheme::Factory> for what I<%scheme_options> can be.
+See L<Net::OAuth::Scheme::Factory>, the default factory class
+for what can be in I<%scheme_options>.  
 
 Use the second form if you want to substitute your own $factory_class; 
-note that this option must appear first.
+note that if you use this option, it must appear first.
+
+Everything that follows describes the behavior of the methods produced
+by the default factory class.
 
 =head1 METHODS
 
@@ -272,8 +379,8 @@ number of seconds after I<$issue_time> that token expires
 an arbitrary sequence of string values that are bound into the token.  
 
 For the purposes of this module these values are opaque and up to the
-module user, though an OAuth2 implementation will almost certainly be
-including at least resource_id, client_id, and scope
+module user.  Doubtless an OAuth2 implementation will almost certainly
+be including at least resource_id, client_id, and scope...
 
 =item I<$request_out>
 
@@ -289,35 +396,38 @@ something with a similar interface.
 
 =item I<@token_as_issued>
 
-the token string (C<access_token> value) followed by the sequence of
-alternating keyword-value pairs that comprise the token as issued by
-the authorization server.  The keywords here will be C<token_type> and
-the names of any extension parameters defined as part of this token
-scheme that are needed in order to construct an access request using
-this token.  All values are as they appear in a successful token or
-authorization endpoint response (i.e., prior to being encoded into a
-JSON structure or URI fragment on the authorization server, or,
-equivalently, after such decoding on the client side).
+the token string (C<access_token> value from a token response)
+followed by the sequence of alternating keyword-value pairs that
+comprise the token as issued by the authorization server.  
+The keywords here will be C<token_type> and the names of any extension
+parameters defined as part of this token scheme that are needed in
+order to construct an access request using this token.  
+
+All values are as they appear in a successful token or authorization
+endpoint response (i.e., prior to being encoded into a JSON structure
+or URI fragment on the authorization server, or, equivalently, after
+such decoding on the client side).
 
 Note that C<expires_in>, C<scope>, and C<refresh_token> are
 specifically I<not> included here (see next item).
 
 For refresh tokens and authorization codes, I<@token_as_issued> will
-always be a one-element list consisting solely of the string token
-value.
+always be a one-element list consisting of a single string value
+(i.e., the C<refresh_token> parameter from a token response or the
+C<code> parameter from an authorization response)
 
 =item I<@non_token_params>
 
 the keyword-value pairs corresponding to the C<expires_in>, C<scope>,
-C<refresh_token> and any other parameters (whether due to an exension,
-local variation, or specified in some future version of OAuth)
-received in a token response that are I<not> needed in order to
+C<refresh_token> and any other parameters received in a token response
+(whether due to an exension, local variation, or specified by some 
+future version of OAuth) that are I<not> needed in order to
 construct an access request using this token.
 
 =item I<@token_as_saved>
 
-the token string plus I<keyword> C<=E<gt>> I<value> pairs that comprise
-the token in the form that it is to be saved on the client.  
+the token string plus alternating keyword-value pairs in the form that
+the token is to be saved on the client.
 
 This may include additional client-side data as required by the token
 scheme (e.g., http_hmac requires the receive time).  Some or all of
@@ -326,26 +436,29 @@ implementer.
 
 =item I<@token_as_used>
 
-the token string plus I<keyword> C<=E<gt>> I<value> pairs that
-comprise the token in the form that it is to be sent to the resource
-server.  Here, the I<keyword>s will refer to Authorization header
-attributes, body parameters, or URI parameters depending on the
-transport scheme in use and need not have anything to do with the
-keywords that appear in I<@token_as_issued> or I<@token_as_saved>.
+the token string plus alternating keyword-value pairs in the form that
+the token gets sent to the resource server.  Here, the I<keyword>s
+will generally refer to additional Authorization header attributes,
+body parameters, or URI parameters (or something else if anyone comes
+up with some other place to stash tokens in an HTTP request) required
+by the transport scheme in use; these keywords need not have anything
+to do with the keywords that appear in I<@token_as_issued> or
+I<@token_as_saved>.
 
 For refresh tokens and authorization codes, I<@token_as_issued> and
-I<@token_as_used> are one-element lists consisting solely of the
-string token value.
+I<@token_as_used> are one-element lists consisting of a single string
+value.
 
 =item I<$error>
 
 in return values will be C<undef> when the method call succeeds,
-and otherwise will be some true value when the method call fails.
+and otherwise will be some true string value indicating what went wrong
+when the method call fails.
 
 =back
 
 The following methods will be defined on token scheme objects,
-depending on the context chosen:
+depending on the usage and implementation context chosen:
 
 =head2 token_create  I<[Authorization Server]>
 
@@ -392,7 +505,7 @@ okay to remove these parameters beforehand if you want).
 =back
 
 Clients I<can> simultaneously accomodate multiple token transport schemes
-provided each expected C<token_type> value corresponds to at most one
+provided either each expected C<token_type> value corresponds to at most one
 specified token scheme, e.g.,
 
   my ($error, $use_scheme, @token_as_saved);
@@ -405,6 +518,10 @@ specified token scheme, e.g.,
      }
   }
   unless ($use_scheme) { ... complain... }
+
+or you have some other means of identifying received tokens (e.g.,
+some other local-extension URI parameter documented by the
+authorization server people tells you which it is)
 
 =head2 http_insert  I<[Client]>
 
@@ -440,7 +557,7 @@ of tokens that may be included in any request E<mdash> otherwise you
 risk providing an attacker an easy means of brute-force search to
 forge/discover token values.
 
-=head2 token_validate  I<[Resource Server], [Refresh Tokens/Authcodes]>
+=head2 token_validate  I<[Resource Server, Refresh Tokens and Authcodes]>
 
  ($error, $issue_time, $expires_in, @bindings)
    = $scheme->token_validate(@token_as_used);
@@ -456,19 +573,21 @@ expiration time and for checking correctness of binding values.
 
  ($error) = $scheme->vtable_pushed(@push_entry)
 
-For use in C<authserv_push> handlers (see ...).  Here I<@push_entry> is an
-opaque sequence of strings extracted from the C<authserv_push> message 
-constructed and sent by B<vtable_push>.
+For use in C<authserv_push> handlers (see ...).  
+
+Here I<@push_entry> is an opaque sequence of strings extracted from
+the C<authserv_push> message constructed and sent by B<vtable_push>.
 
 =head2 vtable_dump  I<[Authorization Server]>
 
- @pull_response = $token_scheme->vtable_dump(@pull_query)
+ @pull_response = $access_scheme->vtable_dump(@pull_query)
 
-For use in C<resource_pull> handlers (see ...).  Here I<@pull_query> is
-an opaque sequence of strings extracted from the pull request
-constructed and sent by B<vtable_pull> and I<@pull_response> is the
-corresponding opaque sequence to be included in the response and
-returned from B<vtable_pull> on the resource server side.  Note that
-I<@pull_response> may contain an error indication, but if so, that
-should be handled by the resource server.
+For use in C<resource_pull> handlers (see ...).  
+
+Here I<@pull_query> is an opaque sequence of strings extracted from
+the pull request constructed and sent by B<vtable_pull> and
+I<@pull_response> is the corresponding opaque sequence to be included
+in the response and returned from B<vtable_pull> on the resource
+server side.  Note that I<@pull_response> may contain an error
+indication, but if so, that should be handled by the resource server.
 
