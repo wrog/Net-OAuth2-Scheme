@@ -37,12 +37,13 @@ sub pkg_root_setup {
     my __PACKAGE__ $self = shift;
 
     my $usage = $self->uses(usage => 'access');
-    die "unknown token kind: $usage"
+    $self->croak("unknown usage '$usage'")
       unless $defined_usage{$usage};
 
     my $context = $self->uses(context => ($usage ne 'access' ? () : ([])));
     for my $c (ref($context) ? @$context : ($context)) {
-        die "unknown context: $c" unless $defined_context{$c};
+        $self->croak("unknown implementation context '$c'")
+          unless $defined_context{$c};
         $self->ensure("is_$c", 1);
     }
     if ($usage ne 'access') {

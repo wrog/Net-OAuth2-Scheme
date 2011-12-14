@@ -148,7 +148,7 @@ sub pkg_vtable_cache_object {
        qw(cache cache_grace cache_prefix));
 
     $prefix .= ':' if length($prefix) && $prefix !~ m/:\z/;
-    Carp::croak("prefix ($prefix) contains interior colon?")
+    $self->croak("cache_prefix ($prefix) cannot contain interior colon (:)")
         if length($prefix) && $prefix =~ m{:[^:]};
 
     $self->install( vtable_get => sub {

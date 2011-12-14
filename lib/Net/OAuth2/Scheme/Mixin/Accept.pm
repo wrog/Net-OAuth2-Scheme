@@ -25,6 +25,7 @@ Default_Value accept_keep => 'everything';
 
 sub pkg_token_accept_default {
     my __PACKAGE__ $self = shift;
+    $self->parameter_prefix(accept_ => @_);
 
     # these two cases are probably not necessary.  In fact, now that I
     # think about it 'token_accept' for refresh tokens and authcodes
@@ -40,7 +41,7 @@ sub pkg_token_accept_default {
     # ditto...
     if ($self->uses('usage') eq 'refresh') {
         # refresh is the token string ONLY
-        $self->install( token_accept => sub { 
+        $self->install( token_accept => sub {
             my ($token, %params) = @_;
             $token = $params{refresh_token} if  $params{refresh_token};
             return $token;
@@ -49,14 +50,15 @@ sub pkg_token_accept_default {
     }
 
     # now for the real stuff
-    my ($remove, $keep, $needs, $hook) = $self->uses_params
-      ('accept' => \@_, qw(remove keep needs hook));
-    my $token_type = $self->uses('token_type');
+    my ($token_type, $remove, $keep, $needs, $hook) = $self->uses_all
+      (qw(token_type accept_remove accept_keep accept_needs accept_hook));
+
     $self->install( token_accept => sub {
         my ($token, %params) = @_;
-        return ('wrong_token_type',%params) 
+        return ('wrong_token_type')
           if (lc($params{token_type}) ne lc($token_type));
-        $hook->(\%params);
+        my ($error) = $hook->(\%params);
+        return ($error) if $error;
 
         my @missing = ();
         my %save = map {

@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 package Net::OAuth2::Scheme::Mixin::Format;
-# ABSTRACT: the 'format' option groupo and 'token_validate'
+# ABSTRACT: the 'format' option group and 'token_validate'
 
 use Net::OAuth2::Scheme::Option::Defines;
 

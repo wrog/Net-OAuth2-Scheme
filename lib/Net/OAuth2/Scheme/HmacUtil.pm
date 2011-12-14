@@ -13,6 +13,7 @@ our @EXPORT_OK = qw(
   sign_binary        unsign_binary
   encode_base64url   decode_base64url
   encode_plainstring decode_plainstring
+  timing_indep_eq
 );
 
 our @Known_HMACs =
@@ -124,11 +125,13 @@ sub unsign_binary {
 }
 
 # base64url is described in RFC 4648: use - and _ in place of + and /
-# since the latter are meaningful in URLs
+# and we leave off trailing =s, all so as not to use characters that
+# are meaningful in URLs
 
 sub encode_base64url {
     local $_ = encode_base64(shift,'');
     y.+/.-_.;
+    s/=+$//;
     return $_;
 }
 
@@ -142,7 +145,7 @@ sub decode_base64url {
 # and double quote (- 128 32 1 1 1 1)
 sub encode_plainstring {
     my @ords = ();
-    my $m = length($_[0]) % 3;
+    my $m = (length($_[0])+2) % 3 + 1;
     for my $c (split '', $_[0]) {
         my @ords2 = (ord($c), (map {$_*2} @ords));
         for my $i (0 .. $#ords) {

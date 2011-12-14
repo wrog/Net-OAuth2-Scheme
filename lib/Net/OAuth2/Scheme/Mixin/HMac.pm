@@ -5,6 +5,9 @@ package Net::OAuth2::Scheme::Mixin::HMac;
 # ABSTRACT: implement http_hmac token scheme
 
 use Net::OAuth2::Scheme::Option::Defines;
+use Net::OAuth2::Scheme::HmacUtil
+  qw(hmac_name_to_len_fn encode_plainstring decode_plainstring timing_indep_eq);
+use MIME::Base64 qw(encode_base64 decode_base64);
 
 # HMAC token
 
@@ -16,73 +19,84 @@ use Net::OAuth2::Scheme::Option::Defines;
 # REQUIRES
 #   random
 
+Default_Value http_hmac_token_type => 'mac';
 Default_Value http_hmac_scheme => 'MAC';
 Default_Value http_hmac_nonce_length => 8;
 Default_Value http_hmac_ext_body => sub {''};
 
 sub pkg_transport_http_hmac {
     my __PACKAGE__ $self = shift;
-    $self->ensure(token_type => 'mac');
-    my $scheme = $self->uses_param(transport_auth => \@_, 'scheme',
-                                   $self->uses('http_hmac_scheme'));
+    $self->parameter_prefix(http_hmac_ => @_);
+    $self->make_alias(http_hmac_header    => 'transport_header');
+    $self->make_alias(http_hmac_header_re => 'transport_header_re');
+    $self->make_alias(http_hmac_scheme    => 'transport_auth_scheme');
+    $self->make_alias(http_hmac_scheme_re => 'transport_auth_scheme_re');
 
-    my $http_hmac_ext_body = $self->uses_param(http_hmac => \@_, 'ext_body');
+    $self->install(token_type => $self->uses('http_hmac_token_type'));
+
+    my $http_hmac_ext_body = $self->uses('http_hmac_ext_body');
     if ($self->is_resource_server) {
         $self->install( http_extract =>
             $self->http_header_extractor
-              (uses_params => \@_,
-               parse_auth => sub {
+              (parse_auth => sub {
                    my ($auth, $req) = @_;
-                   return () unless $auth =~ m{\AMAC\s+}gs;
-                   my $astring = $1;
                    my %attr = ();
-                   while ($auth =~ m{\G([^=[:space:]]+)\s*=\s*"([^"]*)"\s+}gs) {
+                   while ($auth =~ m{\G([^=[:space:]]+)\s*=\s*"([^"]*)"\s*,?\s*}gs) {
                        $attr{$1} = $2;
                    }
                    return () if grep {!defined} (my ($id, $nonce, $mac) = @attr{qw(id nonce mac)});
                    my $ext = defined($attr{ext}) ? $attr{ext} : '';
-                   return ($id, $mac, $nonce, $req->method, $req->uri, $req->host, $req->port,
+
+                   my $uri = $req->uri;
+                   my ($host,$port) = split ':',($req->headers->{host} || $uri->host_port);
+                   $port ||= $uri->scheme eq 'https' ? 443 : 80;
+
+                   return ($id, $mac, $nonce, $req->method, $uri->path_query, $host, $port,
                            $ext, $http_hmac_ext_body->($req, 'server'));
                }));
     }
     if ($self->is_client) {
         my $random = $self->uses('random');
-        my $nonce_length = $self->uses_param(http_hmac => \@_, 'nonce_length');
+        my $nonce_length = $self->uses('http_hmac_nonce_length');
 
-        $self->install( accept_needs => [qw(mac_key mac_algorithm _issued)] );
+        $self->install( accept_needs => [qw(mac_key mac_algorithm mac_received)] );
         $self->install( accept_hook => sub {
             my $params = shift;
-            $params->{_issued} = time();
+            $params->{mac_received} = time();
+            return ("unknown_algorithm")
+              unless hmac_name_to_len_fn($params{mac_algoritym});
+            return ();
         });
 
         $self->http_header_inserter
-          (uses_params => \@_,
-           make_auth => sub {
+          (make_auth => sub {
                my ($http_req, $token, %o) = @_;
 
                my @missing;
-               my ($key, $alg, $issued) = 
+               my ($key, $alg, $received) =
                  map {defined $o{$_} ? $o{$_} : do { push @missing, @_; undef }}
-                   (qw(mac_key mac_algorithm _issued));
-               return ("missing_$missing[0]", $http_req)
+                   (qw(mac_key mac_algorithm mac_received));
+               return ("missing_$missing[0]")
                  if @missing;
 
-               my $nonce = (time() - $issued) . ':' . encode_plainstring($random->($nonce_length));
+               return ("unknown_algorithm")
+                 unless my (undef, $alg_fn) = hmac_name_to_len_fn($alg);
+
+               my $nonce = (time() - $received) . ':' . encode_plainstring($random->($nonce_length));
 
                my $uri = $http_req->uri;
-               $uri = $uri->to_string if ref($uri);
 
-               my ($host,$port) = split ':',($http_req->header('Host') || $http_req->host_port);
+               my ($host,$port) = split ':',($http_req->header('Host') || $uri->host_port);
                $port ||= $uri->scheme eq 'https' ? 443 : 80;
 
                my $ext = $http_hmac_ext_body->($http_req, 'client');
 
                my $normalized = join "\n",
-                 $nonce, $http_req->method, $http_req->uri->path_query, $host, $port, $ext, '';
+                 $nonce, $http_req->method, $uri->path_query, $host, $port, $ext, '';
                return
                  (undef,
                   join ",\n ", qq(id="$token"), qq(nonce="$nonce"),
-                     qq(mac=").encode_base64($alg->($key,$normalized), '').qq("),
+                     qq(mac=").encode_base64($alg_fn->($key,$normalized), '').qq("),
                        (length($ext) ? (qq(ext="$ext")) : ()));
            });
     }
@@ -100,13 +114,15 @@ sub pkg_transport_http_hmac {
 
 sub pkg_format_http_hmac {
     my __PACKAGE__ $self = shift;
+    $self->parameter_prefix(http_hmac_ => @_);
 
     # CANNOT be used for authcodes and refresh tokens
     $self->install(format_no_params => 0);
 
-    my $mac_alg_name = $self->uses_param(http_hmac => \@_, 'hmac');
+    my $mac_alg_name = $self->uses('http_hmac_hmac');
     $mac_alg_name =~ y/_/-/;
-    my ($mac_alg_keylen, $mac_alg) = hmac_name_to_len_fun($mac_alg_name);
+    my ($mac_alg_keylen, $mac_alg) = hmac_name_to_len_fn($mac_alg_name)
+      or $self->croak("unknown/unavailable hmac function: $mac_alg_name");
 
     if ($self->is_auth_server) {
         my $random = $self->uses('random');  # for key generation
@@ -117,29 +133,32 @@ sub pkg_format_http_hmac {
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
             my $v_id = $v_id_next->();
-            my $key = $random->($mac_alg_keylen);
+            my $key = encode_plainstring($random->($mac_alg_keylen));
             my $error = $vtable_insert->($v_id, $now + $expires_in, $now, $key, @bindings);
             return ($error,
                     ($error ? () :
-                     (encode_plainstring($v_id), 
+                     (encode_plainstring($v_id),
                       token_type => $token_type,
-                      mac_key => $key, 
+                      mac_key => $key,
                       mac_algorithm => $mac_alg_name)));
         });
     }
 
     if ($self->is_resource_server) {
         $self->install( token_parse => sub {
-            my ($v_id, %param) = @_;
-            return decode_plainstring($v_id), @param{qw(mac nonce _method _uri _host _port ext _ext_body)};
+            my ($v_id, @rest) = @_;
+            return (decode_plainstring($v_id), @rest);
         });
 
         $self->install( token_finish => sub {
             my ($v, $mac, $nonce, $method, $uri, $host, $port, $ext, $ext_body) = @_; # ($validator, @payload)
             my ($expiration, $issuance, $key, @bindings) = @$v;
+            $mac = decode_base64($mac);
+            my $normalized = join "\n",$nonce,$method,$uri,$host,$port,$ext,$ext_body;
             return ('bad_hash')
-              unless length($mac) == $mac_alg_keylen &&
-                timing_indep_eq($mac, $mac_alg->(join "\n",$nonce,$method,$uri,$host,$port,$ext,''), $mac_alg_keylen) &&
+              unless
+                length($mac) == $mac_alg_keylen &&
+                timing_indep_eq($mac, $mac_alg->($key, $normalized), $mac_alg_keylen) &&
                 length ($ext) == length($ext_body) &&
                 timing_indep_eq($ext, $ext_body);
             return (undef, $issuance, $expiration - $issuance, @bindings);

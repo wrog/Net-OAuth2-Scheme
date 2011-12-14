@@ -5,12 +5,20 @@ package Net::OAuth2::Scheme::Mixin::Bearer;
 # ABSTRACT: implement bearer token schemes
 
 use Net::OAuth2::Scheme::Option::Defines;
+use parent 'Net::OAuth2::Scheme::Mixin::Current_Secret';
+
+use Net::OAuth2::Scheme::HmacUtil
+  qw(encode_base64url decode_base64url
+     sign_binary unsign_binary
+     hmac_name_to_len_fn);
 
 
 # Bearer tokens
 #
 
 # IMPLEMENTATION (transport_)bearer
+#   (bearer_)header = 'Authorization';
+#   (bearer_)header_re = '^Authorization$';
 #   (bearer_)scheme = 'Bearer';
 #   (bearer_)scheme_re = '^Bearer$';
 #   (bearer_)allow_body = 1;
@@ -22,47 +30,62 @@ use Net::OAuth2::Scheme::Option::Defines;
 #   Bearer token, handle-style
 
 
+Default_Value bearer_token_type => 'Bearer';
 Default_Value bearer_scheme => 'Bearer';
 Default_Value bearer_allow_body => 1;
 Default_Value bearer_allow_uri => 0;
 Default_Value bearer_param => 'oauth_token';
 Default_Value bearer_client_uses_param => 0;
 
+Define_Group bearer_param_re => 'default';
+
+sub pkg_bearer_param_re_default {
+    my __PACKAGE__ $self = shift;
+    my $param = $self->uses('bearer_param');
+    $self->install(bearer_param_re => qr(\A\Q$param\E\z));
+    return $self;
+}
+
 sub pkg_transport_bearer {
     my __PACKAGE__ $self = shift;
-    $self->ensure(token_type => 'Bearer');
-    my $scheme = $self->uses_param(transport_auth => \@_, 'scheme',
-                                   $self->uses('bearer_scheme'));
-    my $allow_body = $self->uses_param(bearer => \@_, 'allow_body');
-    my $allow_uri = $self->uses_param(bearer => \@_, 'allow_uri');
-    my $body_or_uri = 
+    $self->parameter_prefix(bearer_ => @_);
+    $self->make_alias(bearer_header    => 'transport_header');
+    $self->make_alias(bearer_header_re => 'transport_header_re');
+    $self->make_alias(bearer_scheme    => 'transport_auth_scheme');
+    $self->make_alias(bearer_scheme_re => 'transport_auth_scheme_re');
+
+    $self->install(token_type => $self->uses('bearer_token_type'));
+
+    my $allow_body = $self->uses('bearer_allow_body');
+    my $allow_uri = $self->uses('bearer_allow_uri');
+    my $body_or_uri =
       ($allow_body ? ($allow_uri ? 'dontcare' : 'body') : ($allow_uri ? 'query' : ''));
-    my $param_name = $body_or_uri && $self->uses_param(bearer => \@_, 'param');
 
     if ($self->is_client) {
         $self->install( accept_needs => [] );
-        $self->install( accept_hook => sub {} );
-        if ($self->uses_param(bearer => \@_, 'client_uses_param')) {
-            Carp::croak("bearer_client_uses_param requires bearer_allow_(body|uri)")
+        $self->install( accept_hook => sub {return ()} );
+        if ($self->uses('bearer_client_uses_param')) {
+            $self->croak("bearer_client_uses_param requires bearer_allow_(body|uri)")
                 unless $body_or_uri;
+            my $param_name = $self->uses('bearer_param');
             $self->http_parameter_inserter($body_or_uri, $param_name, sub { $_[0] });
         }
         else {
-            $self->http_header_inserter(uses_params => \@_);
+            $self->http_header_inserter();
         }
     }
 
     if ($self->is_resource_server) {
-        my $scheme_re = $self->uses_param(transport => \@_, scheme_re => qr(\A\Q$scheme\E\z)s);
-        Carp::croak("bearer_scheme_re does not match bearer_scheme")
-            if defined($scheme) && $scheme !~ $scheme_re;
-
-        my $header_extractor = $self->http_header_extractor(uses_params => \@_);
+        my $header_extractor = $self->http_header_extractor();
 
         if ($body_or_uri) {
-            my $param_re = $self->uses_param(bearer => \@_, param_re => qr(\A\Q$param_name\E\z)s);
-            Carp::croak("bearer_param_re does not match bearer_param")
-                if defined($param_name) && $param_name !~ $param_re;
+
+            my $param_re = $self->uses('bearer_param_re');
+            $param_re = qr{$param_re}is unless ref($param_re);
+
+            my $param_name = $self->installed('bearer_param');
+            $self->croak("bearer_param_re does not match bearer_param")
+              if (defined($param_name) && $param_name !~ $param_re);
 
             my $param_extractor = $self->http_parameter_extractor($body_or_uri, $param_re);
             $self->install( http_extract => sub {
@@ -90,22 +113,26 @@ sub pkg_format_bearer_handle {
     $self->install(format_no_params => 1);
 
     if ($self->is_auth_server) {
+        my ( $v_id_next, $vtable_insert) = $self->uses_all
+          (qw(v_id_next   vtable_insert));
+
         # Enforce requirements on v_id_next.
         # Since, for this token format, v_ids are used directly,
         # they MUST NOT be predictable.
         $self->ensure(v_id_is_random => 1,
                       'bearer_handle tokens must use random identifiers');
-        my ( $v_id_next, $vtable_insert, $token_type) = $self->uses_all
-          (qw(v_id_next   vtable_insert   token_type));
+
+        my $token_type = (($self->uses('usage') eq 'access')
+                          ? $self->uses('token_type') : ());
 
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
             my $v_id = $v_id_next->();
             my $error = $vtable_insert->($v_id, $expires_in + $now, $now, @bindings);
             return ($error,
-                    ($error ? () : 
+                    ($error ? () :
                      (encode_base64url($v_id),
-                      token_type => $token_type,
+                      ($token_type ? (token_type => $token_type) : ()),
                      )));
         });
     }
@@ -147,25 +174,26 @@ Default_Value bearer_signed_fixed => [];
 
 sub pkg_format_bearer_signed {
     my __PACKAGE__ $self = shift;
-      
+    $self->parameter_prefix(bearer_signed_ => @_);
+
     # yes, we can use this for authcodes and refresh tokens
     $self->install(format_no_params => 1);
 
     if ($self->is_auth_server) {
-        my $hmac = $self->uses_param(bearer_signed => \@_, 'hmac');
+        my $hmac = $self->uses('bearer_signed_hmac');
         my ($hlen,undef) = hmac_name_to_len_fn($hmac)
-          or Carp::croak("unknown/unavailable hmac function: $hmac");
-        my $nonce_len = $self->uses_param(bearer_signed => \@_, nonce_length => $hlen/2);
+          or $self->croak("unknown/unavailable hmac function: $hmac");
+        my $nonce_len = $self->uses(bearer_signed_nonce_length => $hlen/2);
 
         $self->uses(current_secret_length => $hlen);
-        $self->uses(current_secret_payload =>
-                    $self->uses_param(bearer_signed => \@_, 'fixed'));
+        $self->uses(current_secret_payload => $self->uses('bearer_signed_fixed'));
 
-        my @secret = @{$self->uses('current_secret')};
+        my $secret = $self->uses('current_secret');
         my $auto_rekey_check = $self->uses('current_secret_rekey_check');
         my $random = $self->uses('random');
 
-        my $token_type = $self->uses('token_type');
+        my $token_type = (($self->uses('usage') eq 'access')
+                          ? $self->uses('token_type') : ());
 
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
@@ -173,7 +201,7 @@ sub pkg_format_bearer_signed {
             return (rekey_failed => $error)
               if $error;
 
-            my ($v_id, $v_secret, undef, @fixed) = @secret;
+            my ($v_id, $v_secret, undef, @fixed) = @{$secret};
             for my $f (@fixed) {
                 my $given = shift @bindings;
                 return (fixed_parameter_mismatch => $f,$given)
@@ -186,7 +214,7 @@ sub pkg_format_bearer_signed {
                                                  pack('w/aww(w/a)*', $nonce, $now, $expires_in, @bindings),
                                                  hmac => $hmac,
                                                  extra => $v_id)),
-                    token_type => $token_type,
+                    ($token_type ? (token_type => $token_type) : ()),
                    );
         });
     }

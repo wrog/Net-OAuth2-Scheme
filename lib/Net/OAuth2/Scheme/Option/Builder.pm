@@ -21,14 +21,65 @@ sub _all_groups {
     map {%{"${_}::Group"}} All_Classes($class);
 }
 
-use fields qw(value defaults pkg used export);
+# group finder, in case we need it
+our %find_group;
+sub _find_group {
+    my $class = shift;
+    unless ($find_group{$class}) {
+        my %group = $class->_all_groups;
+        my %fg = ();
+        for my $g (keys %group) {
+            $fg{$_} = $g for @{$group{$g}->{keys}};
+        }
+        $find_group{$class} = \%fg;
+    }
+    return \%find_group;
+}
+
+# define our own croak so that there are reasonable error messages when options get set incorrectly
+our @load = ();
+our $Show_Uses_Stack = 1; #for now
+
+sub croak {
+    my ($self,$msg) = @_;
+    my $c = 0;
+    for my $key (@load) {
+        my $pkg_foo = $self->{pkg}->{$key}->[0] ||'?';
+        my $from = ref($self)->_find_group->{$key};
+        $from = $from ? " (group $find_group{$key} ($pkg_foo))" : '';
+        ++$c;
+        while (defined(caller($c)) && (caller($c))[3] !~ '::uses$') { ++$c; }
+        while ((caller($c))[0] eq __PACKAGE__) { ++$c; }
+        if ($Show_Uses_Stack) {
+            my ($file,$line) = (caller($c))[1,2];
+            print STDERR "... option '$key'$from needed at $file, line $line'\n";
+        }
+    }
+    {
+        no strict 'refs';
+        # make Carp trust everyone between here and first caller to uses()
+        # which is usually going to be Scheme->new().
+        push @{(caller($_))[0] . '::CARP_NOT'}, __PACKAGE__
+          for (0..$c);
+    }
+    Carp::croak($msg);
+}
+
+use fields qw(value alias default pkg export);
+
+# alias:   name -> name2 (where named option actually lives)
+# default: name -> default value to use if value not specified
+# pkg:     name -> [pkg, args...] to invoke if value not specified
+# value:   name -> value (value for named option or undef)
+# export:  list of exported names
+
 sub new {
     my $class = shift;
     my %opts = @_;
     $class = ref($class) if ref($class);
     my __PACKAGE__ $self = fields::new($class);
-    my %group = $class->_all_groups;
 
+    my %group = $class->_all_groups;
     for my $i (values %group) {
         if (defined $i->{default}) {
             $self->{pkg}->{$_} = $i->{default}
@@ -38,7 +89,7 @@ sub new {
     for my $o (keys %opts) {
         if (my $i = $group{$o}) {
             my $impl = $opts{$o};
-            my @ispec = ref($impl) eq 'ARRAY' ? @{$impl} : ($impl);
+            my @ispec = ref($impl) ? @{$impl} : ($impl);
             $ispec[0] = "pkg_${o}_$ispec[0]";
             $self->{pkg}->{$_} = \@ispec
               for @{$i->{keys}};
@@ -48,7 +99,7 @@ sub new {
         }
     }
 
-    $self->{defaults} =
+    $self->{default} =
       $self->{value}->{defaults_all}
         ||
       { _all_defaults(ref($self)),
@@ -58,39 +109,108 @@ sub new {
 }
 
 sub DESTROY {
-    print STDERR "Boom!";
+    print STDERR "Boom!\n";
 }
 
+# actual('key')
+# where to lookup pkg,default,value for 'key'
+sub actual {
+    my __PACKAGE__ $self = shift;
+    my ($key) = @_;
+    while (defined(my $nkey = $self->{alias}->{$key})) {
+        $key = $nkey;
+    }
+    return $key;
+}
+
+# alias('key','key2')
+# causes options 'key' and 'key2' to become synonyms
+sub make_alias {
+    my __PACKAGE__ $self = shift;
+    my ($okey, $okey2) = @_;
+    my ( $key,  $key2) = map {$self->actual($_)} @_;
+
+    # only options that have not been claimed by groups
+    # can have {alias} entries; so make sure $key is
+    # the one that is not in a group.
+    (    $key, $key2, $okey, $okey2)
+      = ($key2, $key, $okey2, $okey)
+        if $self->{pkg}->{$key};
+
+    # if both $key and $key2 are in groups, we die,
+    # because otherwise, there will be ambiguity about
+    # which pkg_ routine is invoked to initialize them
+    Carp::croak("cannot alias group members to each other: '$okey'"
+                .($okey ne $key ? " ('$key')" : "")
+                ." <-> '$okey2'"
+                .($okey2 ne $key2 ? " ('$key2')" :""))
+        if $self->{pkg}->{$key};
+
+    # if there is a value, make sure it lives on $key2
+    if (defined($self->{value}->{$key2})) {
+        $self->croak("settings of options '$key' and '$key2' conflict")
+          if (defined($self->{value}->{$key})
+              && $self->{value}->{$key} ne $self->{value}->{$key2});
+    }
+    elsif (defined($self->{value}->{$key})) {
+        $self->{value}->{$key2} = $self->{value}->{$key};
+    }
+
+    # if there is a default value, make sure it lives on $key2
+    if (defined($self->{default}->{$key2})) {
+        # make conflicting defaults disappear
+        delete $self->{default}->{$key2}
+          if (defined($self->{default}->{$key})
+              && $self->{default}->{$key} ne $self->{default}->{$key2});
+    }
+    elsif (defined($self->{default}->{$key})) {
+        $self->{default}->{$key2} = $self->{default}->{$key};
+    }
+    # remove stuff that does not matter anymore
+    delete $self->{default}->{$key};
+    delete $self->{value}->{$key};
+
+    # we can point $key to $key2 (finally)
+    $self->{alias}->{$key} = $key2;
+}
+
+
+# installed('key')
+# value for 'key' or undef
 sub installed {
     my __PACKAGE__ $self = shift;
     my ($key, $default) = @_;
-    return $self->{value}->{$key};
+
+    return $self->{value}->{$self->actual($key)};
 }
 
+
 # uses(key => [,default_value])
-# if option 'key' is not defined,
-# either use default_value, install package for it, or die
+# value for 'key'; if not defined yet
+# either use default_value, {default}->{key}, install package for it, or die
 sub uses {
     my __PACKAGE__ $self = shift;
-    my ($key, $default) = @_;
+    my ($okey, $default) = @_;
+    my $key = $self->actual($okey);
+    local @load = ($okey, @load);
+
     unless (exists($self->{value}->{$key})) {
-        if (defined $default) {
+        if (defined $default
+            || defined($default = $self->{default}->{$key})) {
             $self->install($key, $default);
         }
-        elsif (defined($default = $self->{defaults}->{$key})) {
-            $self->install($key, $default);
-        }
-        elsif (my ($pkg,@kvs) = ($self->{pkg}->{$key})) {
+        elsif (my ($pkg,@kvs) = @{$self->{pkg}->{$key} || []}) {
             ($pkg,@kvs) = @$pkg if ref($pkg);
             $self->$pkg(@kvs);
             Carp::croak("package failed to define value:  $pkg -> $key")
-                unless defined $self->{value}->{$key};
+                unless defined($self->{value}->{$key});
         }
     }
     my $value = $self->{value}->{$key};
-    Carp::croak("undefined:  $key")
-      unless defined($value);
-    $self->{used}->{$key}++;
+    unless (defined($value)) {
+        my $g = ref($self)->_find_group->{$key};
+        $self->croak("a setting for '".($g || $key)."' is needed");
+    }
     return $value;
 }
 
@@ -100,8 +220,8 @@ sub ensure {
     my __PACKAGE__ $self = shift;
     my ($key, $value, $msg) = @_;
     $self->uses($key, $value) eq $value
-      or Carp::croak($msg || "$key expected to be '$value'");
-    return $self;
+      or $self->croak($msg || "option '$key' must be '$value' here.");
+    return $value;
 }
 
 # uses_all(qw(key1 key2 ...))
@@ -111,37 +231,23 @@ sub uses_all {
     return map {$self->uses($_)} @_;
 }
 
-# like uses() but checks a supplied prefix-stripped list of key-value pairs first
-# uses_param(prefix => $kvs, key => $default)
-# == uses('prefix_key', {@$kvs}->{key} // $default)
-sub uses_param {
+sub parameter_prefix {
     my __PACKAGE__ $self = shift;
-    my ($prefix, $kvs, $name, $default) = @_;
-    my $value = {@$kvs}->{$name};
-    $value = $default unless defined $value;
-    return $self->uses("${prefix}_$name", $value);
-}
-
-# like uses_all() but checks a supplied prefix-stripped list of key-value pairs first
-# uses_params(prefix => $kvs, qw(key1 key2 ...))
-# == (uses_param(prefix => $kvs, 'key1'), uses_param(prefix => $kvs, 'key2'), ...)
-sub uses_params {
-    my __PACKAGE__ $self = shift;
-    my ($prefix, $kvs, @names) = @_;
-    return map { $self->uses_param($prefix, $kvs, $_) } @names;
+    my ($prefix, %h) = @_;
+    $self->ensure("${prefix}$_",$h{$_})
+      for (keys %h);
 }
 
 # install(key => $value) sets option 'key' to $value
 sub install {
     my __PACKAGE__ $self = shift;
-    my ($key, $value) = @_;
+    my ($okey, $value) = @_;
+    my $key = $self->actual($okey);
 
-    Carp::croak("tried to install undef?:  $key")
+    Carp::croak("tried to install undef?:  $okey")
         unless defined $value;
-    Carp::croak("multiple definitions?:  $key")
+    Carp::croak("multiple definitions?:  $okey")
         if defined $self->{value}->{$key};
-    Carp::croak("redefinition after use?:  $key")
-        if $self->{used}->{$key};
 
     $self->{value}->{$key} = $value;
 }
@@ -241,6 +347,10 @@ returning the list of corresponding values.
 =item B<uses_param>
 
 =item B<uses_params>
+
+=item B<croak> ($msg)
+
+Like L<Carp::croak> but only for errors that are clearly the result of mistakes in option settings.
 
 =back
 

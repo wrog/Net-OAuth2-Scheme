@@ -28,29 +28,33 @@ Default_Value v_id_suffix => '';
 
 sub pkg_v_id_next_default {
     my __PACKAGE__ $self = shift;
-    my ($kind, $suffix) = 
-      $self->uses_params(v_id => \@_, qw(kind suffix));
+    $self->parameter_prefix(v_id_ => @_);
+    my ($kind, $suffix) = $self->uses_all(qw(v_id_kind v_id_suffix));
     ($kind, my @kvs) = @$kind if ref($kind) eq 'ARRAY';
 
     my $next_id;
     if ($kind eq 'random') {
-        my $random = $self->uses('random');
-        my $length = $self->uses_param(v_id_random => \@kvs, 'length');
+        require Net::OAuth2::Scheme::Random;
 
-        Carp::croak("v_id_length must be at least 8")
+        my $random = $self->uses('random');
+        my $length = $self->uses(v_id_random_length => {@kvs}->{length});
+
+        $self->croak("v_id_length must be at least 8")
             unless $length >= 8;
-        Carp::croak("v_id_length must be no more than 127")
+        $self->croak("v_id_length must be no more than 127")
             unless $length <= 127;
         $next_id = sub { pack 'Ca*a*', 128+$length, $random->($length), $suffix };
         $self->install('v_id_is_random', 1);
     }
     elsif ($kind eq 'counter') {
+        require Net::OAuth2::Scheme::Counter;
+
         my $counter = $self->uses('counter');
         $next_id = sub { pack 'a*a*', $counter->next(), $suffix };
         $self->install('v_id_is_random', 0);
     }
     else {
-        Carp::croak("unknown v_id_kind: $kind");
+        $self->croak("unknown v_id_kind: $kind");
     }
     $self->install( v_id_next => $next_id );
 }
@@ -71,7 +75,7 @@ Default_Value counter_tag => '';
 sub pkg_counter_default {
     my __PACKAGE__ $self = shift;    
     my $tag = $self->uses('counter_tag');
-    $self->install('counter', Net::OAuth2::Server::Counter->new($tag));
+    $self->install('counter', Net::OAuth2::Scheme::Counter->new($tag));
 }
 
 

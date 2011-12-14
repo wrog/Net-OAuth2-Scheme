@@ -18,8 +18,9 @@ use URI::Escape;
 #   http_insert
 #   accept_hook
 #   accept_needs
+#   token_type
 Define_Group transport => undef,
-  qw(http_extract  http_insert  accept_hook  accept_needs);
+  qw(http_extract  http_insert  accept_hook  accept_needs token_type);
 
 Default_Value transport_header => 'Authorization';
 
@@ -28,16 +29,16 @@ Define_Group transport_header_re => 'default';
 sub pkg_transport_header_re_default {
     my __PACKAGE__ $self = shift;
     my $transport_header = $self->uses('transport_header');
-    $self->install(transport_header_re => qr(\A\Q$transport_header\E\z));
+    $self->install(transport_header_re => qr(\A\Q$transport_header\E\z)is);
     return $self;
 }
 
 Define_Group transport_auth_scheme_re => 'default';
 
-sub pkg_transport_scheme_re_default {
+sub pkg_transport_auth_scheme_re_default {
     my __PACKAGE__ $self = shift;
     my $scheme = $self->uses('transport_auth_scheme');
-    $self->install(transport_auth_scheme_re => qr(\A\Q$scheme\E\z));
+    $self->install(transport_auth_scheme_re => qr(\A\Q$scheme\E\z)is);
     return $self;
 }
 
@@ -65,17 +66,16 @@ sub pkg_transport_auth_scheme_default {
 sub http_header_extractor {
     my __PACKAGE__ $self = shift;
     my %o = @_;
-    my $uses_params = $o{uses_params};
 
-    my $header_re = $self->uses_param(transport => $uses_params, 'header_re');
+    my $header_re = $self->uses('transport_header_re');
     $header_re = qr{$header_re}is unless ref($header_re);
 
     if (my $header = $self->installed('transport_header')) {
-        Carp::croak("transport_header_re does not match transport_header")
+        $self->croak("transport_header_re does not match transport_header")
             if ($header !~ $header_re);
     }
     
-    if (my ($parse_header) = $o{parse_header}) {
+    if (defined(my $parse_header = $o{parse_header})) {
         return sub {
             my ($plack_req) = @_;
             my @found = ();
@@ -91,13 +91,14 @@ sub http_header_extractor {
     # what most people want to do
     my $parse_auth = $o{parse_auth} || sub {$_[0]};
 
-    my $scheme_re = $self->uses_param(transport_auth => $uses_params, 'scheme_re');
+    my $scheme_re = $self->uses('transport_auth_scheme_re');
     $scheme_re = qr{$scheme_re}is unless ref($scheme_re);
 
-    if (my $scheme = $self->installed('transport_auth_scheme')) {
-        Carp::croak("transport_auth_scheme_re does not match transport_auth_scheme")
-            if ($scheme !~ $scheme_re);
+    if (defined(my $scheme = $self->installed('transport_auth_scheme'))) {
+        $self->croak("transport_auth_scheme_re does not match transport_auth_scheme")
+          if ($scheme !~ $scheme_re);
     }
+
     return sub {
         my ($plack_req) = @_;
         my @found = ();
@@ -115,8 +116,7 @@ sub http_header_extractor {
 sub http_header_inserter {
     my __PACKAGE__ $self = shift;
     my %o = @_;
-    my $uses_params = $o{uses_params};
-    my $header = $self->uses_param('transport' => $uses_params, 'header');
+    my $header = $self->uses('transport_header');
     if (my $mk_header = $o{make_header}) {
         $self->install( http_insert => sub {
             my ($http_req) = @_;
@@ -127,7 +127,7 @@ sub http_header_inserter {
         });
     }
     else {
-        my $scheme = $self->uses_param('transport_auth' => $uses_params, 'scheme');
+        my $scheme = $self->uses('transport_auth_scheme');
         my $mk_auth = $o{make_auth} || sub { return (undef, $_[1]) };
         $self->install( http_insert => sub {
             my ($http_req) = @_;

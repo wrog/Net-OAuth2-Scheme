@@ -5,6 +5,7 @@ package Net::OAuth2::Scheme::Mixin::Current_Secret;
 # ABSTRACT: the 'current_secret' option group
 
 use Net::OAuth2::Scheme::Option::Defines;
+use Net::OAuth2::Scheme::Random;
 
 # INTERFACE current_secret
 # DEFINES
@@ -43,12 +44,14 @@ Default_Value current_secret_payload => [];
 # a shared-cache vtable
 sub pkg_current_secret_simple {
     my __PACKAGE__ $self = shift;
-    my ( $random, $vtable_insert) = $self->uses_all(
-       qw(random   vtable_insert));
-
-    my (  $rekey_interval, $length, $payload) =
-      $self->uses_params(current_secret => \@_,
-        qw(rekey_interval   length   payload));
+    $self->parameter_prefix(current_secret_ => @_);
+    my ( $random, $vtable_insert,
+         $rekey_interval, $length, $payload)
+      = $self->uses_all(
+       qw(random   vtable_insert
+          current_secret_rekey_interval
+          current_secret_length
+          current_secret_payload));
 
     my @stashed = (undef, undef, 0, @$payload);
 
