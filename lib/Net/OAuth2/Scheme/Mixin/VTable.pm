@@ -69,7 +69,7 @@ sub pkg_vtable_shared_cache {
 #   vtable_lookup = vtable_get
 #   vtable_pushed = vtable_put
 
-sub pkg_vtable_auth_push {
+sub pkg_vtable_authserv_push {
     my __PACKAGE__ $self = shift;
     if ($self->is_auth_server) {
         $self->install( vtable_insert => $self->uses('vtable_push'));

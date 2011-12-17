@@ -37,9 +37,10 @@ Default_Value bearer_allow_uri => 0;
 Default_Value bearer_param => 'oauth_token';
 Default_Value bearer_client_uses_param => 0;
 
-Define_Group bearer_param_re => 'default';
+Define_Group bearer_param_re_set => 'default',
+  qw(bearer_param_re);
 
-sub pkg_bearer_param_re_default {
+sub pkg_bearer_param_re_set_default {
     my __PACKAGE__ $self = shift;
     my $param = $self->uses('bearer_param');
     $self->install(bearer_param_re => qr(\A\Q$param\E\z));

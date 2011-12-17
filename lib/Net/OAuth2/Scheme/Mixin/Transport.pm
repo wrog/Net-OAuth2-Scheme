@@ -24,27 +24,30 @@ Define_Group transport => undef,
 
 Default_Value transport_header => 'Authorization';
 
-Define_Group transport_header_re => 'default';
+Define_Group transport_header_re_set => 'default',
+  qw(transport_header_re);
 
-sub pkg_transport_header_re_default {
+sub pkg_transport_header_re_set_default {
     my __PACKAGE__ $self = shift;
     my $transport_header = $self->uses('transport_header');
     $self->install(transport_header_re => qr(\A\Q$transport_header\E\z)is);
     return $self;
 }
 
-Define_Group transport_auth_scheme_re => 'default';
+Define_Group transport_auth_scheme_re_set => 'default',
+  qw(transport_auth_scheme_re);
 
-sub pkg_transport_auth_scheme_re_default {
+sub pkg_transport_auth_scheme_re_set_default {
     my __PACKAGE__ $self = shift;
     my $scheme = $self->uses('transport_auth_scheme');
     $self->install(transport_auth_scheme_re => qr(\A\Q$scheme\E\z)is);
     return $self;
 }
 
-Define_Group transport_auth_scheme => 'default';
+Define_Group transport_auth_scheme_set => 'default',
+  qw(transport_auth_scheme);
 
-sub pkg_transport_auth_scheme_default {
+sub pkg_transport_auth_scheme_set_default {
     # spec 8.1 says auth scheme SHOULD be identical to the token_type name
     my __PACKAGE__ $self = shift;
     my $type_name = $self->uses('token_type');
