@@ -86,12 +86,14 @@ sub pkg_counter_default {
 #   random  (n)-> string of n random octets
 
 # default implementation
-Define_Group  random => 'isaac';
+Default_Value  random_class => 'Math::Random::MT::Auto';
+
+Define_Group  random_set => 'default', qw(random);
 
 # If you can find a better one, go for it.
-sub pkg_random_isaac {
+sub pkg_random_set_default {
     my __PACKAGE__ $self = shift;
-    my $rng = Net::OAuth2::Server::Random->new('Math::Random::ISAAC');
+    my $rng = Net::OAuth2::Server::Random->new($self->uses('random_class'));
     $self->install( random => sub { $rng->bytes(@_) });
 }
 

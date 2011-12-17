@@ -1,41 +1,76 @@
 use strict;
 use warnings;
 
-package Net::OAuth2::Server::Random;
+package Net::OAuth2::Scheme::Random;
+# ABSTRACT: random number generator interface
 use Carp;
 use Thread::IID 'interpreter_id';
 
-# fixup procedures for when rng_class->new
-# does not quite do the right thing
-my %fixup = ();
+# default RNG class; needs to be something that can do
+#   $rng = class->new(@ints)  # new rng seeded with @ints
+#   $rng->irand;              # random 32/64-bit int
+#
+our $RNG_Class;
 
-# we keep around one RNG per rng_class per thread
-# keep re-using the same seed in forks and interpreter clones
-my @seeds = _make_seed();
-my %rng = ();
-my %bytes = (); # leftover bytes from bytestring generation
-my %refs = ();  # how many objects have been created for a given rng_class
-my $p_id = -1;
-my $i_id;
+# stash seed so that we can keep re-using it for each new fork and
+# interpreter clone, varying only the process_id and interpreter_id
+my @seed;
+
+# class setup methods
+our %seeds = ();  # class -> @seeds if we trust their autoseeder
+our %new = ();    # class -> (@seeds -> new or reseeded RNG)
+our %ish = ();    # class -> 3 for 64bit, 2 for 32bit irand
+
+sub import {
+    my $class = shift;
+    # set $RNG_Class
+    if (@_) {
+        $RNG_Class = shift;
+    }
+    else {
+        my @classes = keys %{ +{ map {$_,1} keys %seeds, keys %new } };
+        for my $c (@classes) {
+            my $f = $c;
+            $f =~ s|::|/|g;
+            $f .= '.pm';
+            next unless $INC{$f};
+            $RNG_Class = $c;
+            last;
+        }
+    }
+    $RNG_Class = 'Math::Random::ISAAC'
+      unless defined $RNG_Class;
+
+    # set @seed
+    @seed = ($seeds{$RNG_Class} || \&_make_seed)->();
+}
+
+my %rng = ();   # class -> (singleton) RNG object of that class
+my %bytes = (); # class -> leftover bytes
+my %refs = ();  # class -> # of Net::OAuth2::Scheme::Random objects
+my $p_id = -1;  # process id ($$)
+my $i_id;       # interpreter id (see Thread::IID for explanation)
 
 sub _reseed_for_new_thread {
     my $rng_class = shift;
-    my $rng = $rng_class->new(@seeds, $p_id, $i_id, time);
-    $rng = $fixup{$rng_class}->($rng)
-      if $fixup{$rng_class};
+    my $new = $new{$rng_class} || sub {
+        my $class=shift;
+        return $class->new(@_);
+    };
+    my $rng = $new->($rng_class, $seed[0]+time, $seed[1]+$p_id, $seed[2]+$i_id, @seed[3.. $#seed]);
     $rng{$rng_class} = $rng;
     $bytes{$rng_class} = '';
-}    
-
-our $RNG_Class = 'Math::Random::ISAAC';
-$fixup{$RNG_Class} = \&_rng_fixup_ISAAC;
+}
 
 sub new {
     my $class = shift;
     my $rng_class = shift || $RNG_Class;
+
+    # check for fork()
     $class->CLONE unless $$ == $p_id;
+
     unless ($rng{$rng_class}) {
-        eval "require $rng_class";
+        eval "use ${rng_class};";
         _reseed_for_new_thread($rng_class);
     }
     $refs{$rng_class}++;
@@ -45,9 +80,7 @@ sub new {
 sub _rng {
     my $self = shift;
 
-    # just in case CLONE is not called after a fork()
-    # which is how things work in unix,
-    # so we have to check for this here.
+    # check for fork()
     ref($self)->CLONE unless $$ == $p_id;
 
     return $rng{$$self};
@@ -58,7 +91,7 @@ sub DESTROY {
     --$refs{$$self};
     # this routine only exists for the sake of being able to detect
     # unused RNG classes upon interpreter clone or process fork.
-    # 
+    #
     # once a RNG of a given class is created with a given seed,
     # we need to keep it around forever within any given process/thread
     # otherwise, we will get repeats
@@ -91,16 +124,19 @@ sub irand {
 
 sub bytes {
     my ($self, $nbytes) = @_;
-    Carp::croak('non-negative integer expected') 
+    Carp::croak('non-negative integer expected')
         if $nbytes < 0;
 
     my $rng = $self->_rng;
+    my $ish = $ish{$$self} || 2;
+    my $imask = (1<<$ish)-1;
+    my $L = $ish == 2 ? 'L' : 'Q';
 
     my @ints = ();
-    push @ints, $rng->irand for (1..$nbytes>>2);
+    push @ints, $rng->irand for (1..$nbytes>>$ish);
 
-    unless (my $nrem = $nbytes&3) {
-        return pack 'L*', @ints;
+    unless (my $nrem = (${nbytes} & ${imask})) {
+        return pack "${L}*", @ints;
     }
     else {
         my ($rest);
@@ -109,17 +145,20 @@ sub bytes {
             ($rest,$bytes{$$self}) = ($extras,'');
         }
         else {
-            ($rest,$bytes{$$self}) = unpack 'C/aa*', 
-              ($nrem > length($extras) 
-               ? pack 'Ca*L', $nrem, $extras, $rng->irand
+            ($rest,$bytes{$$self}) = unpack 'C/aa*',
+              ($nrem > length($extras)
+               ? pack "Ca*${L}", $nrem, $extras, $rng->irand
                : pack 'Ca*',  $nrem, $extras);
         }
-        return pack 'a*L*', $rest, @ints;
+        return pack "a*${L}*", $rest, @ints;
     }
 }
 
 sub _make_seed {
     # stolen from Math::Random::Secure
+    my ($nbytes, $sizeofint) = @_;
+    $nbytes ||= 64;
+    $sizeofint ||= 4;
     my $source;
     if ($^O =~ /Win32/i) {
         # On Windows, there is apparently only one choice
@@ -136,18 +175,102 @@ sub _make_seed {
          $source = $factory->get_strong
            if ($source->isa('Crypt::Random::Source::Weak::rand'));
     }
-    return unpack('L*', $source->get(64));
+    return unpack(($sizeofint == 8 ? 'Q*' : 'L*'), $source->get($nbytes));
 }
 
-### ISAAC-specific stuff
+### Math::Random::ISAAC support ###########################
 
-sub _rng_fixup_ISAAC {
-    my $rng = shift;
-    # It's faster to skip the frontend interface of Math::Random::ISAAC
-    # and just use the backend directly. However, in case the internal
-    # code of Math::Random::ISAAC changes at some point, we do make sure
-    # that the {backend} element actually exists first.
+$new{'Math::Random::ISAAC'} = sub {
+    my $class=shift;
+    my $rng = $class->new(@_);
+
+    # skip frontend of Math::Random::ISAAC,
+    # unless Math::Random::ISAAC has changed
+    # so that there is no {backend} anymore.
     $rng = $rng->{backend} if $rng->{backend};
     return $rng;
+};
+
+### Math::Random::MT::Auto support ###########################
+
+my $mrma = 'Math::Random::MT::Auto';
+
+use Config;
+$ish{$mrma} = $Config{uvsize} == 8 ? 3 : 2;
+
+$seeds{$mrma} = sub {
+    my @s = $MRMA::PRNG->get_seed;
+    if (@s < 4) {
+        # class was loaded with :noauto or auto-seeding failed;
+        # try to seed it ourselves
+        @s = _make_seed(2496, $Config{uvsize});
+    }
+    return @s;
+};
+
+$new{$mrma} = sub {
+    my $class = shift;
+
+    # RNG shared acrosss threads does not need reseeding
+    return $rng{$class}
+      if $Math::Random::MT::Auto::shared;
+
+    return $class->new('SEED'=> \@_)
+};
+
+sub _SHUT_UP_SHUT_UP_used_once_diagnostics {
+    [$MRMA::PRNG, $Math::Random::MT::Auto::shared];
 }
+
+1;
+
+=pod
+
+=head1 SYNOPSIS
+
+ # use something (defaults to ISAAC)
+ use Net::OAuth2::Scheme::Random;
+
+ # use ISAAC;
+ use Net::OAuth2::Scheme::Random 'Math::Random::ISAAC';
+
+ # use Mersenne Twister
+ use Net::OAuth2::Scheme::Random 'Math::Random::MT::Auto';
+
+ $rng = Net::OAuth2::Scheme::Random->new
+ $rng->bytes(24) # return 24 random octets
+
+=head1 DESCRIPTION
+
+This provides an interface for using arbitrary random number
+generator classes with Net::OAuth2::Scheme.
+
+The generator is instantiated exactly once in each thread/interpreter
+using the same randomly derived seed, the process ID,
+the interpreter ID and the thread/interpreter-start time.
+Repeated calls to new() in the same thread/interpreter
+will simply return the same generator.
+
+=head1 CONSTRUCTOR
+
+=over
+
+=item C<< $class-> >>B<new>()
+
+=item C<< $class-> >>B<new>(C<< $rng_class >>)
+
+Return the generator derived from the default class / C<$rng_class>
+as instantiated for this thread/interpreter.
+
+=back
+
+=head1 METHODS
+
+=over
+
+=item B<bytes>($n)
+
+Return a random string of $n octets.
+
+=back
 
