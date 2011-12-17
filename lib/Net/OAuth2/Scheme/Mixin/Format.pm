@@ -19,7 +19,7 @@ Define_Group format => undef,
 #   token[, send_attributes] -> invalid?[, issued, expires_in, bindings...]
 # SUMMARY
 #   validate a token
-#   token[,attributes] are from http_extract or a refresh request
+#   token[,attributes] are from psgi_extract or a refresh request
 
 
 # default implementation

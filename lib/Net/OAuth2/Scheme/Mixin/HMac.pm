@@ -36,7 +36,7 @@ sub pkg_transport_http_hmac {
 
     my $http_hmac_ext_body = $self->uses('http_hmac_ext_body');
     if ($self->is_resource_server) {
-        $self->install( http_extract =>
+        $self->install( psgi_extract =>
             $self->http_header_extractor
               (parse_auth => sub {
                    my ($auth, $req) = @_;

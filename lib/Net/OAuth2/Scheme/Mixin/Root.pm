@@ -20,9 +20,11 @@ my %defined_context = map {$_,1} qw(
   resource_server
 );
 
-# sub is_client
-# sub is_auth_server
-# sub is_resource_server
+sub is_access { return $_[0]->uses('is_access'); }
+
+# sub is_client ...
+# sub is_auth_server ...
+# sub is_resource_server ...
 {
     no strict 'refs';
     for my $whatever (keys %defined_context) {
@@ -39,34 +41,39 @@ sub pkg_root_setup {
     my $usage = $self->uses(usage => 'access');
     $self->croak("unknown usage '$usage'")
       unless $defined_usage{$usage};
+    my $is_access = $self->ensure("is_access", $usage eq 'access');
 
-    my $context = $self->uses(context => ($usage ne 'access' ? () : ([])));
+    my $context = $self->uses(context => ($is_access ? () : ([])));
     for my $c (ref($context) ? @$context : ($context)) {
         $self->croak("unknown implementation context '$c'")
           unless $defined_context{$c};
         $self->ensure("is_$c", 1);
     }
-    if ($usage ne 'access') {
+    unless ($is_access) {
         $self->ensure(format_no_params => 1);
-        $self->ensure(is_client => 0, 'client implementations do not need refresh-token/authcode schemes'); 
+        $self->ensure(is_client => 0, 'client implementations do not need refresh-token/authcode schemes');
         $self->ensure(is_auth_server => 1);
         $self->ensure(is_resource_server => 1);
     }
-    $self->install(root => 'done');
-
     $self->export
       (
-       ($self->is_client 
-        ? ('token_accept',
-           ($usage eq 'access' ? ('http_insert') :()),
-          ) : ()),
-       ($self->is_resource_server
-        ? ('token_validate',
-           ($usage eq 'access' ? ('http_extract') :()),
-          ) : ()),
-       ($self->is_auth_server
-        ? ('token_create') : ()),
+       (!$self->is_client ? ()
+        : (
+           'token_accept',
+           ($is_access ? ('http_insert') : ()),
+          )),
+       (!$self->is_resource_server ? ()
+        : (
+           ($is_access ? ('psgi_extract') : ()),
+           'token_validate',
+          )),
+       (!$self->is_auth_server ? ()
+        : (
+           'token_create'
+          )),
       );
+
+    $self->install(root => 'done');
     return $self;
 }
 

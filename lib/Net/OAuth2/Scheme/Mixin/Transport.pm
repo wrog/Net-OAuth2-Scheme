@@ -14,13 +14,13 @@ use URI::Escape;
 
 # INTERFACE transport
 # DEFINES
-#   http_extract
 #   http_insert
+#   psgi_extract
 #   accept_hook
 #   accept_needs
 #   token_type
 Define_Group transport => undef,
-  qw(http_extract  http_insert  accept_hook  accept_needs token_type);
+  qw(psgi_extract  http_insert  accept_hook  accept_needs token_type);
 
 Default_Value transport_header => 'Authorization';
 
@@ -59,7 +59,7 @@ sub pkg_transport_auth_scheme_default {
 }
 
 #
-# for defining http_insert and http_extract
+# for defining http_insert and psgi_extract
 # when token is being stashed in a header
 # 
 
@@ -77,11 +77,12 @@ sub http_header_extractor {
     
     if (defined(my $parse_header = $o{parse_header})) {
         return sub {
-            my ($plack_req) = @_;
+            my $request = Plack::Request->new(shift);
+            my ($env) = @_;
             my @found = ();
-            $plack_req->headers->scan(sub {
+            $request->headers->scan(sub {
                 return unless lc(shift) =~ $header_re;
-                my @t = $parse_header->(shift, $plack_req);
+                my @t = $parse_header->(shift, $request);
                 push @found, \@t if @t;
             });
             return @found;
@@ -148,10 +149,10 @@ sub http_parameter_extractor {
     my $parameters = ($body_or_query eq 'dontcare' ? "parameters" 
                       : "${body_or_query}_parameters");
     return sub {
-        my ($plack_req) = @_;
+        my $request = Plack::Request->new(shift);
         my @found = ();
         my @others = ();
-        $plack_req->$parameters->each(sub {
+        $request->$parameters->each(sub {
             my ($kwd, $value) = @_;
             if ($kwd =~ $token_param_re) {
                 push @found, [$value];

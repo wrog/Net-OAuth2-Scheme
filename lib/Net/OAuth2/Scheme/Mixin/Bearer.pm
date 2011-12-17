@@ -88,13 +88,13 @@ sub pkg_transport_bearer {
               if (defined($param_name) && $param_name !~ $param_re);
 
             my $param_extractor = $self->http_parameter_extractor($body_or_uri, $param_re);
-            $self->install( http_extract => sub {
-                my ($plack_req) = @_;
-                return ($header_extractor->($plack_req), $param_extractor->($plack_req));
+            $self->install( psgi_extract => sub {
+                my $env = shift;
+                return ($header_extractor->($env), $param_extractor->($env));
             });
         }
         else {
-            $self->install( http_extract => $header_extractor );
+            $self->install( psgi_extract => $header_extractor );
         }
     }
 }
@@ -122,8 +122,7 @@ sub pkg_format_bearer_handle {
         $self->ensure(v_id_is_random => 1,
                       'bearer_handle tokens must use random identifiers');
 
-        my $token_type = (($self->uses('usage') eq 'access')
-                          ? $self->uses('token_type') : ());
+        my $token_type = ($self->is_access ? $self->uses('token_type') : ());
 
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
@@ -192,8 +191,7 @@ sub pkg_format_bearer_signed {
         my $auto_rekey_check = $self->uses('current_secret_rekey_check');
         my $random = $self->uses('random');
 
-        my $token_type = (($self->uses('usage') eq 'access')
-                          ? $self->uses('token_type') : ());
+        my $token_type = ($self->is_access ? $self->uses('token_type') : ());
 
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
