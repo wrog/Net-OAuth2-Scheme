@@ -54,9 +54,21 @@ sub pkg_token_accept_default {
       (qw(token_type accept_remove accept_keep accept_needs accept_hook));
 
     $self->install( token_accept => sub {
-        my ($token, %params) = @_;
+        my ($token, %params);
+        if (0 == @_ % 2) {
+            # token_accept( access_token => $token [, kwd => $value]* )
+            %params = @_;
+            $token = delete $params{access_token}
+              or return ('no_access_token');
+        }
+        else {
+            # token_accept( $token [, kwd => $value]* )
+            ($token, %params) = @_;
+        }
+
         return ('wrong_token_type')
           if (lc($params{token_type}) ne lc($token_type));
+
         my ($error) = $hook->(\%params);
         return ($error) if $error;
 
