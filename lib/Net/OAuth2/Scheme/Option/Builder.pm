@@ -39,6 +39,7 @@ sub _find_group {
 # define our own croak so that there are reasonable error messages when options get set incorrectly
 our @load = ();
 our $Show_Uses_Stack = 1; #for now
+our $Visible_Destroy = 1; #for now
 
 sub croak {
     my ($self,$msg) = @_;
@@ -109,7 +110,7 @@ sub new {
 }
 
 sub DESTROY {
-    print STDERR "Boom!\n";
+    print STDERR "Boom!\n" if $Visible_Destroy;
 }
 
 # actual('key')
@@ -252,12 +253,13 @@ sub install {
     $self->{value}->{$key} = $value;
 }
 
-# export(keys...) == uses(keys ...)
+# export(keys...) == uses_all(keys ...)
 # marking all keys as being exported.
 sub export {
     my __PACKAGE__ $self = shift;
-    $self->uses_all(@_);
+    my @r = $self->uses_all(@_);
     $self->{export}->{$_}++ for (@_);
+    return @r;
 }
 
 sub all_exports {
