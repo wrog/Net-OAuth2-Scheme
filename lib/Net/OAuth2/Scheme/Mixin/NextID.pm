@@ -49,6 +49,7 @@ sub pkg_v_id_next_default {
     elsif ($kind eq 'counter') {
         require Net::OAuth2::Scheme::Counter;
 
+        $self->uses('counter_tag' => {@kvs}->{tag});
         my $counter = $self->uses('counter');
         $next_id = sub { pack 'a*a*', $counter->next(), $suffix };
         $self->install('v_id_is_random', 0);
