@@ -1,3 +1,22 @@
+thoughts about multi authserver scenarios.
+There are two that matter
+(1) multiple authservers in a single organization to get scaling
+    so that each server can issue tokens independently.
+    As long as every authserver is using a different part of the ID 
+    space (different v_id_suffix for each),
+    resource server should not notice or care
+
+(2) resource that allows multiple organizations to issue tokens for it
+    EITHER
+     (A) each org has a distinct ID suffix so that collisions are impossible
+         if there are worries about orgs being mutually hostile
+         then resource server needs a way of extracting the suffix
+    OR
+     (B) cache lookup does ID -> list of [org, @entry]
+     and then use token_validate to distinguish
+     (will NOT work for bearer_handle)
+
+
 # what the various players need
 # @token_issue = (access_token_string, issue_attributes...)
 # @token_send  = (access_token_string, send_attributes...)

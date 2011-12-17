@@ -13,7 +13,10 @@ use parent 'Net::OAuth2::Scheme::Mixin::Accept';
 use parent 'Net::OAuth2::Scheme::Mixin::VTable';
 use parent 'Net::OAuth2::Scheme::Mixin::NextID';
 
-#... and, we are done.  Bwahahahahahaha.
+#... and done!
+
+# If you are trying to figure this out, start with Root
+
 1;
 
 =pod
@@ -21,7 +24,7 @@ use parent 'Net::OAuth2::Scheme::Mixin::NextID';
 =head1 SYNOPSIS
 
   # The recipes;
-  # 
+  #
   # can be hardcoded, initialized from config files, etc...
 
   my %recipe_client = (
@@ -32,7 +35,7 @@ use parent 'Net::OAuth2::Scheme::Mixin::NextID';
   )
 
   # more stuff for authorization servers and resource servers
-  my %recipe_common = ( 
+  my %recipe_common = (
      %recipe_client,
      format => 'bearer_handle', # or 'bearer_signed'
      ... or ...
@@ -95,21 +98,27 @@ use parent 'Net::OAuth2::Scheme::Mixin::NextID';
 
 =head1 DESCRIPTION
 
-The token scheme factory object is created by
-L<Net::OAuth2::Scheme>-E<gt>B<new>() to parse the option settings
-given and produce the specialized methods that the resulting scheme
-object will need.  It is an ephemeral object that self-destructs the
-moment the scheme object is complete.
+A token scheme factory object parses a collection of option settings
+(normally given as the arguments for L<Net::OAuth2::Scheme>->B<new()>),
+and then exports a set of specialized methods (closures) that a
+corresponding scheme object will need.  The implementation context and
+intended usage determine which option values are referenced/needed and
+which methods will ultimately be produced.
 
-You should not need to create factory objects yourself, though it I<is>
-intended for you to be able to create your own factory I<classes> with
-their own option groups and implementation methods for, e.g., new
-token formats, transport schemes, etc.  See
+The factory object is ephemeral and intended to be able to
+self-destruct as soon as the exported methods are installed on the
+scheme object being created.
+
+One should generally not need to create factory objects directly,
+though it I<is> intended for one to be able to design customized
+factory I<classes> with their own option group definitions and
+implementation methods to, say, accomodate new token formats or
+transport schemes.  See
 L<Net::OAuth2::Scheme::Option::Builder> and
-L<Net::OAuth2::Scheme::Option::Defines> and the various mixins 
-L<Net::OAuth2::Scheme::Mixin::*> to get a sense of how to do this
-(... though also be aware that this part of the world may be in a bit
-of flux for a while...)
+L<Net::OAuth2::Scheme::Option::Defines> and the various mixins
+L<Net::OAuth2::Scheme::Mixin::*> for a sense of how this works
+[... since we're still in alpha release here, be aware that this
+particular part of our world may be in a bit of flux for a while...]
 
 =head1 KINDS OF OPTIONS
 
@@ -117,11 +126,11 @@ There will generally be two kinds of option settings
 
 =over
 
-=item I<option_name> C<=E<gt>> I<value> 
+=item I<option_name> C<=E<gt>> I<value>
 
-which directly sets the value of the specified option.  
+which directly sets the value of the specified option.
 
-=item I<group_name> C<=E<gt>> I<implementation> 
+=item I<group_name> C<=E<gt>> I<implementation>
 
 which has the effect of setting an entire group of options.
 (Options that are members of a group can be set individually,
@@ -153,13 +162,12 @@ nothing is executed until the context/usage is determined and a scheme
 object needs to be produced.
 
 Note, however, that the usual rules for initializing perl hashes still
-apply, e.g., if you specify an option setting twice in the same
-parameter list, only the second one matters.
+apply here, e.g., if you specify an option setting twice in the same
+parameter list, the first will be silently ignored.
 
 An option setting is regarded as I<constant>, i.e., once an option
-value is actually set, it is an error to attempt to set it differently
-value later (group implementations I<can> do this, which will then
-abort your scheme creation).
+value is actually set, it is an error to attempt to set it a different
+value later.
 
 You can use the C<defaults> option (or C<defaults_all> if you are
 completely crazy) to change the defaults for certain options without
@@ -169,81 +177,79 @@ People will be inserting Actual Settings later...).
 
 =head1 OPTIONS
 
-Generally you will have to set one of C<usage> or C<context>.
+Generally you will have to set one of C<usage> or C<context> to
+determine how/where the scheme object will be used.
 
-Specifying C<transport> is usually enough for client implementations.
-Authorization and resource servers will also need at least C<format>
-and C<vtable>.  
+For client implementations, specifying C<transport> should suffice.
+Authorization and resource servers will also need specifications for
+at least C<format> and C<vtable>.
 
-Certain option settings will entail the presence of others (e.g., all
-current versions of C<vtable> require a setting for C<cache>) which
-will be noted below.
+Specifying option settings often entails the presence of others (e.g.,
+once you decide on a C<vtable> implementation, a setting for C<cache>
+will be required, at least in all of the current implementations)
+which will be noted below.
 
-=head2 usage
+=head2 Usage and Implementation Context
 
 =over
 
-=item C<access>
+=item C<usage>
 
-(Default.)  This scheme provides access token methods for use in a
-client, authorization server, or resource server implementation.
+This specifies the intended use of the token, one of the following
 
-Note that in OAuth2, clients and resource servers do not, in fact,
-(currently) need to see other kinds of scheme objects.  While client
-implementations do need to handle refresh tokens and authorization
-codes, in that context they are simply opaque strings and questions of
-transport that would normally be of interest are already completely
-determined by the OAuth2 protocol itself, so there are no actual
-methods that need to be made available there.
+=over
 
-=item C<refresh>
+=item C<'access'>
 
-This scheme provides refresh token methods 
-for use in an authorization server implementation.
+(Default.)  An access token for use by a client to make use of a particular API at a resource server.
 
-The methods B<token_create> and B<token_validate> are provided.
+=item C<'refresh'>
 
-=item C<authcode>
+A refresh token for use by a client at an authorization server's token endpoint to obtain replacement access tokens.
 
-This scheme provides authorization codes methods
-for use in an authorization server implementation.
+=item C<'authcode'>
 
-The methods B<token_create> and B<token_validate> are provided.
+An authorization code for use by a client at an authorization server's token endpoint to obtain access and refresh tokens.
 
-(authorization code schemes currently differ from refresh token
-schemes only in choice of binding information, which is outside the
-scope of these modules, so these schemes are functionally identical,
-for now...)
+(Strictly speaking, authorization codes are not regarded as tokens by the OAuth 2 specification, however they require the same methods as refresh tokens, i.e., they need to be created and validated.  Currently authcode schemes differ from refresh token schemes only in choice of binding information, which is outside the scope of these modules, so C<refresh> and C<authcode> schemes are functionally identical, for now...)
 
 =back
 
-=head2 context
+Note that in OAuth2, client and resource server implementations do not, in fact,
+(currently) need to use scheme objects other than C<< usage => 'access' >> ones.
 
-For access-token schemes, the implementation context needs to be specified.
-This can be one or more of the following:
+While client implementations do indeed to handle refresh tokens and authorization
+codes, in that context they are simply passed through as opaque strings and all questions of
+transport that would normally be of interest are already completely
+determined by the OAuth2 protocol itself, so there are no actual
+methods that need to be made available.
+
+=item C<context>
+
+For access-token schemes, this specifies the implementation context, one or more of the following:
 
 =over
 
-=item C<client>
+=item C<'client'>
 
 This scheme object is for use in a client implementation.
 The methods B<token_accept> and B<http_insert> will be provided.
 
-=item C<resource_server>
+=item C<'resource_server'>
 
 This scheme object is for use in a resource server implementation.
-The methods B<http_extract> and B<token_validate> will be provided.
+The methods B<psgi_extract> and B<token_validate> will be provided.
 
-=item C<auth_server>
+=item C<'auth_server'>
 
 This scheme object is for use in an authorization server implementation.
 The B<token_create> method will be provided.
 
 =back
 
-This option value can either be as single string or a listref in the case of 
-combined implementations where the same process is serving multiple 
-roles for whatever reason.
+Here, the option value can either be as single string or a listref
+in the case of combined implementations where the same process is
+serving multiple roles for whatever reason.
 
 Note that while refresh token and authorization code schemes are only
 needed within an authorization server implementation, since the same
@@ -257,67 +263,233 @@ were specified, meaning that any option settings that would otherwise
 only be necessary for a resource server implementation will be
 required in these cases as well.
 
-=head2 transport
+=back
 
-Provides B<http_extract> and B<http_insert>.  Choices are
+=head2 Transport Options
+
+The transport options determines how B<psgi_extract> and B<http_insert> are implemented.  They concern where the token appears in a given HTTP message, the usual choices being a header field, a (POST or other) body parameter, or a URI parameter.  In the event that a header field is used, the header in question will generally be "authorization-formatted", i.e., formatted as per L<rfc2617> and successor specifications, in which case an authorization scheme name will also need to be specified.
 
 =over
 
-=item C<< bearer_header  [scheme => I<scheme>] >>
+=item C<transport>
 
-Bearer token string in an Authorization header.
-C<scheme> and C<location> can also be specified separately as 
-options C<bearer_param_name> and C<bearer_param_location>.
+The specific transport scheme to use; current choices are:
 
-Refers to option C<bearer_header_scheme>
+=over
 
-=item C<< bearer_param  [name => I<name>, location => 'body'|'query'|'dontcare'] >>
+=item C<'bearer'>
 
-Bearer token string in a POST body or URI parameter.  
-C<name> and C<location> can also be specified separately as 
-options C<bearer_param_name> and C<bearer_param_location>.
+Bearer token (L<draft-ietf-oauth-v2-bearer>) consisting of a single
+(secret, unpredictable) string.
+The various C<bearer_> options below apply.
 
-=item C<hmac_http>
+=item C<'http_hmac'>
 
-Implements the transport side of L<draft-ietf-oauth-v2-http-mac>,
-a "proof-style" token in which the token string is a key identifier 
-and additional parameters (C<nonce>, C<mac>) placed in an Authorization
+HTTP-HMAC token (L<draft-ietf-oauth-v2-http-mac>),
+a "proof-style" token in which the token is a string (key identifier)
+and two additional parameters (C<nonce>, C<mac>) placed in an Authorization
 header constituting proof that the client possesses the token secret
 without having to actually send the secret.
+The various C<http_hmac_> options below apply.
 
 =back
 
-=head2 format
+=back
 
-Provides C<token_create>, C<token_parse>, and C<token_finish>  Choices are
+The following generic transport options are applicable to all choices of C<transport> implementation.
 
 =over
 
-=item C<bearer_handle>
+=item C<transport_header>
+
+if this is a transport scheme that allows the use of headers, indicates the header to be used by clients and also as the header where tokens will be recognized by resource servers if C<transport_header_re> has not been set.  Default is C<"Authorization">.
+
+=item C<transport_header_re>
+
+regexp; if this is a transport scheme that allows the use of headers, the resource server will recognize tokens in headers whose names match this pattern.
+
+=item C<transport_auth_scheme>
+
+if this is a transport scheme that calls for an Authorization-formatted header, indicates the authorization scheme to be used by clients and also the scheme that will be recognized by resource servers if C<transport_auth_scheme_re> has not been set.
+
+=item C<transport_auth_scheme_re>
+
+regexp; if this is a transport scheme that calls for an authorization-formatted header, the resource server will recognize tokens in headers whose authorization scheme matches this pattern.
+
+=back
+
+The following options apply when C<< transport => 'bearer' >> is selected and can be included with the prefix omitted, e.g.,
+
+ transport => ['bearer', allow_body => 1],
+
+=over
+
+=item C<(bearer_)allow_body>
+
+boolean; if true, (default) resource server will recognize tokens located in the request body, otherwise, request body will be ignored when searching for tokens.
+
+=item C<(bearer_)allow_uri>
+
+boolean; if true, resource server will recognize tokens located in the request URI, otherwise, (default) request URI will be ignored when searching for tokens.
+
+=item C<(bearer_)client_uses_param>
+
+boolean; if true, client send the token as a body or URI parameter (use whichever is available as per C<bearer_allow_body> or C<bearer_allow_uri>, preferring body), rather than a header, otherwise, (default) client will send the token in an authorization-formatted header.
+
+=item C<(bearer_)header>
+
+clients place tokens in this (authorization-formatted) header.  This also serves as the default header where resource servers look for tokens if C<bearer_header_re> is not set.  Default is C<'Authorization'>.
+
+=item C<(bearer_)header_re>
+
+regexp; resource server looks for tokens in headers whose names match this
+
+=item C<bearer_param>
+
+name of body or URI parameter for client to use if either C<allow_uri> or C<allow_body> is set and C<bearer_client_uses_param> is set.  This also serves as the default parameter name the resource server looks for if C<bearer_param_re> is not set.  Default is C<'oauth_token'>.
+
+=item C<(bearer_)param_re>
+
+regexp; if C<allow_uri> or C<allow_body> is set, resource server should look for tokens in parameters with matching names.
+
+=item C<(bearer_)scheme>
+
+if authorization-formatted headers are called for, client will use this authorization scheme.  This also serves as the default pattern for the scheme that resource servers will recognize if C<bearer_scheme_re> is not set.  Default is C<'Bearer'>.
+
+=item C<(bearer_)scheme_re>
+
+regexp; resource server recognizes tokens in authorization-formatted headers whose scheme matches this pattern.
+
+=item C<(bearer_)token_type>
+
+authorization server sets and client should expect this value of C<token_type> in I<@token_as_issued>.  Default is C<'Bearer'>.
+
+=back
+
+The following options apply when C<< transport => 'http_hmac' >> is selected and can be included with the C<http_hmac_> prefix omitted (e.g., C<< transport => ['http_hmac', header => 'X-HTTP-HMAC'] >>):
+
+=over
+
+=item C<(http_hmac_)header>
+
+clients place tokens in this header field.  This also serves as the default header where resource servers look for tokens if C<http_hmac_header_re> is not set.  Default is C<'Authorization'>.
+
+=item C<(http_hmac_)header_re>
+
+regexp; resource server looks for tokens in headers whose names match this pattern.
+
+=item C<http_hmac_scheme>
+
+client will use this authorization scheme.  This also serves as the default pattern for the scheme that resource servers will recognize if C<http_hmac_scheme_re> is not set.  Default is C<'MAC'>.
+
+=item C<http_hmac_scheme_re>
+
+regexp; resource server will recognize tokens in authorization-formatted headers whose scheme matches this pattern.
+
+=item C<http_hmac_nonce_length>
+
+length of nonce that clients should generate
+
+=item C<http_hmac_token_type>
+
+authorization server sets and client should expect this value of C<token_type> in I<@token_as_issued>.  Default is C<'mac'>.
+
+=back
+
+=head2 Acceptance Options
+
+The following options customize the behavior of B<token_accept>:
+
+=over
+
+=item C<accept_keep>
+
+listref of keywords or C<'everything'>; indicating which values should be included in I<@token_as_saved>.  C<'everything'> indicates that all available keywords should be included except for those specified in C<accept_remove>.  Default is C<'everything'>
+
+=item C<accept_remove>
+
+listref of keywords; indicates which values B<token_accept> should exclude from I<@token_as_saved> in the case where C<accept_keep> is indicating that everything should be kept by default; this option is ignored, otherwise.  Default is C<< ['expires_in', 'scope', 'refresh_token'] >>
+
+=back
+
+=head2 Format Options
+
+The following options determine the format/encoding of a token and the binding information that it includes, if there is a choice about this.
+
+=over
+
+=item C<format>
+
+This is an option group, providing C<token_create>, C<token_parse>, and C<token_finish>.
+Choices are
+
+=over
+
+=item C<'bearer_handle'>
 
 Use a "handle-style" bearer token where the token string is a random
 base64url string with no actual content.  Expiration information and
 all binding values must live in the vtable and need to be communicated
-individually to the resource server.
+out of band to the resource server.
 
-=item C<bearer_signed>
+=item C<'bearer_signed'>
 
 Use a "assertion-style" bearer token where the token string includes
 some or all of the binding values, a nonce, and a hash value keyed on
 a shared secret that effectively signs everything.  Only the shared
 secret and remaining binding values needs to be kept in the vtable and
-communicated separately to the resource server.
+communicated out of band to the resource server.
 
-=item C<hmac_http>
+=item C<'hmac_http'>
 
 Implements the formatting portion of L<draft-ietf-oauth-v2-http-mac>
 (see description under C<transport_hmac_http>).  Expiration
-information and all binding data live in the vtable, as for
-handle-style bearer tokens.
+information and all binding data live in the vtable and must be
+communicated out of band to the resource server, as for
+C<'bearer_handle'> formatted tokens.
 
 =back
 
-=head2 vtable
+=back
+
+The following options apply when C<< format => bearer_signed >> is selected and can be included with the C<bearer_signed_> prefix omitted (e.g., C<< transport => ['bearer_signed', hmac => 'hmac_sha256'] >>).
+
+=over
+
+=item C<(bearer_signed_)hmac>
+
+HMAC algorithm to use for signing tokens.  Default is C<'hmac_sha224'>.
+
+=item C<(bearer_signed_)nonce_length>
+
+integer; length (bytes) of random nonce/salt material to be included
+in the token.  Default is half of the keylength of the chosen HMAC
+algorithm.
+
+=item C<(bearer_signed_)fixed>
+
+listref; initial sequence of bound values that must always be the same
+(and are thus never included with the token).  Setting this to a
+nonempty list causes B<token_create> to fail when I<@bindings> does
+not begin with these values in the specified order, and causes
+B<token_validate> to always return a I<@bindings> list beginning with
+these values.  Default is an empty list.
+
+=back
+
+The following options apply when C<< format => http_hmac >> is
+selected and can be included with the C<http_hmac_> prefix omitted
+(e.g., C<< transport => ['http_hmac', hmac => 'hmac_sha256'] >>).
+
+=over
+
+=item C<http_hmac_hmac>  (format/http_hmac)
+
+The HMAC algorithm to be used.
+
+=back
+
+=head2 Validator Table (vtable) Options
 
 The validator table or "vtable" is the mechanism via which secrets are
 communicated from the authorization server to the resource server.
@@ -329,11 +501,15 @@ the cache, and C<vtable_lookup>, which the resource server uses to
 obtain these values as needed to validate a given token and return the
 bindings and expiration data associated with it.
 
-There are three implementation frameworks to choose from:
+=over
+
+=item C<vtable>
+
+Determines which vtable implementation paradigm to use, one of:
 
 =over
 
-=item C<shared_cache>
+=item C<'shared_cache'>
 
 The cache is an actual (secure) shared cache, accessible to both the
 authorization server and the resource server, whether this be, say,
@@ -342,14 +518,14 @@ authorization server and the resource server, whether this be, say,
 
 =item *
 
-a L<memcached> server (or a farm thereof) mutually accessible to 
-authorization and resource servers, which can then live on entirely 
+a L<memcached> server (or a farm thereof) mutually accessible to
+authorization and resource servers, which can then live on entirely
 different hosts or even distinct network sites
 
-=item * 
+=item *
 
 a file-based cache (e.g., L<Cache::File>), which requires
-authorization and resource servers to either be on the same host 
+authorization and resource servers to either be on the same host
 or have access to the same file server
 
 =item *
@@ -372,7 +548,7 @@ server, and we don't have to know exactly how the communication
 happens because the cache implementer already took care of that for
 us.
 
-=item C<authserv_push>
+=item C<'authserv_push'>
 
 There is a cache, but it is local/private to the resource server.
 
@@ -389,16 +565,13 @@ around to actually using the token.
 C<vtable_lookup> by the resource server is then just C<vtable_get>.
 
 The function B<vtable_push> must be supplied in the authorization
-server implementation.  It is expected to send its (opaque) argument
-to the resource server and then returns the (null or error code)
-response it received.
+server implementation.  There must also be a resource server push
+endpoint with a handler that calls the the scheme object's
+B<vtable_pushed> method on whatever (opaque list) value receives,
+sending back as a response whatever return value (null or error code)
+it gets.
 
-The function B<vtable_pushed> is available on the scheme object to the
-resource server implementation.  The push request handler is expected
-to call it on the value sent by B<vtable_push>, sending back as a response
-whatever return value (null or error code) it gets.
-
-=item C<resource_pull>
+=item C<'resource_pull'>
 
 There is a cache, but it is (again) local/private to the resource server.
 
@@ -411,29 +584,29 @@ C<vtable_lookup>, when called by the resource server, does the following
 
 =item *
 
-a call to C<vtable_get>, which may succeed or fail.  
+a call to C<vtable_get>, which may succeed or fail.
 Failure is immediately followed by
 
 =item *
 
 a call to C<vtable_pull> which is expected to send a query to the authorization
-server.  
+server.
 
 =item *
 
-A pull handler on the authorization server then calls C<vtable_dump> 
+A pull handler on the authorization server then calls C<vtable_dump>
 to flush the contents of the internal queue and
 incorporate this list value into a response back to the resource server.
 
 =item *
 
-C<vtable_pull> then receives that response, extracts the reply list value 
+C<vtable_pull> then receives that response, extracts the reply list value
 and returns it, at which point
 
 =item *
 
 C<vtable_load> can then load the new entries into the resource
-server's cache and then 
+server's cache and then
 
 =item *
 
@@ -441,9 +614,7 @@ C<vtable_get> can be retried.
 
 =back
 
-The function B<vtable_pull> must be supplied in the resource server
-implementation and is expected to send an opaque query to the
-authorization server and return whatever response it receives.
+The function B<vtable_pull> must be supplied.
 
 The function B<vtable_dump> is available on the scheme object to the
 authorization server implementation.  Its argument is expected to be
@@ -452,17 +623,35 @@ is to be included in the response to the pull request.
 
 =back
 
-=head2 vtable_cache
+=item C<vtable_pull>
 
-The low-level cache interface; provides C<vtable_get> and C<vtable_put>.
-The default implementation is 
+coderef; implementation for B<vtable_pull>
+as used/required by C<< vtable => resource_pull >> in a resource
+server implementation.  It takes an arbitrary opaque list of arguments,
+sends them to the authorization server's resource_pull endpoint,
+collects the (opaque list) response it receives and returns it,
+or returns a one-element error-code list if the send fails.
+
+=item C<vtable_push>
+
+coderef; implementation for B<vtable_push>
+as used/required by C<< vtable => authserv_push >> in an
+authorization server implementation.
+It takes an arbitrary opaque list of arguments,
+sends them to the resource server's authserv_push endpoint,
+collects the success or error-code response that it receives,
+and returns null or the error code accordingly.
+
+=item C<vtable_cache>
+
+The low-level cache interface; provides C<vtable_get> and C<vtable_put> methods.
+The default implementation is
 
 =over
 
-=item C<object>
+=item C<'object'>
 
-which requires C<cache> to be set to some object that implements the 
-L<Cache|Cache> interface, specifically C<get()> and the 3-argument C<set()>.
+which requires C<cache> to be set as described below.
 
 =back
 
@@ -472,42 +661,132 @@ are the same process and somebody wants to be ultra-secure by not even
 allowing the cache into shared memory... but I'm not going to worry
 about this for now...) >>
 
-=head2 vtable_pull_queue
+=item C<vtable_pull_queue>
 
-Provides a queue for C<< vtable => resource_pull >>, in the form of the functions
-C<vtable_enqueue>, C<vtable_dump>, C<vtable_query>, and C<vtable_load>.
+Determines how the queue for C<< vtable => resource_pull >>, is implemented.
+(implementation is a matter of supplying four functions
+C<vtable_enqueue>, C<vtable_dump>, C<vtable_query>, and C<vtable_load>).
 
-This has a default implementation that you probably don't need to care about.
-
-=head2 current_secret
-
-Provides current secret management for C<< format => bearer_signed >>,
-namely a list reference C<current_secret> and a function
-C<current_secret_rekey_check>, which is run every time a new token is
-created in order to regenerate the secret as needed.
-
-This has a default implementation that refers to C<current_secret_rekey_interval> and C<current_secret_length>.
-
-=head2 v_id_next
-
-Generates new v_ids.  Provides the function C<v_id_next> and the flag C<v_id_is_random>, 
-which causes C<format_bearer_handle> to die if it is not set.
-
-This has a default implementation ...
-
-=head2 random
-
-A cryptographically secure random number generator.
-
-This has a default implementation
+Current choices are
 
 =over
 
-=item C<isaac>
-
-which is the L<Math::Random::ISAAC(::XS)|Math::Random::ISAAC> random number generator.
+=item C<'default'>
 
 =back
 
-=head1 INDIVIDUAL OPTIONS
+=back
+
+=head2 Current Secret Options
+
+For C<< format => bearer_signed >> (and possibly other uses later),
+there is a shared secret that needs to be communicated out of band to the resource server and that needs to be expired and regenerated every so often.  Generally, there will be two secrets active at any given time (since after regeneration, we keep the old one around and continue to honor tokens generated from it until it expires).
+
+=over
+
+=item C<current_secret_length>
+
+integer; number of bytes in the share secret
+
+=item C<current_secret_rekey_interval>
+
+integer; number of seconds before expiration that the current secret gets regenerated.
+
+=item C<current_secret_lifetime>
+
+integer (default is twice C<current_secret_rekey_interval>); secrets are to expire this many seconds after being regenerated.
+
+=back
+
+=head2 Cache Options
+
+The following options apply when C<< vtable_cache => object >> is chosen
+
+=over
+
+=item C<cache>
+
+The actual cache object to use, some object that implements the L<Cache|Cache> interface, specifically C<get()> and the 3-argument C<set()>.
+
+=item C<cache_grace>
+
+integer; setting this causes actual expiration times for items in the cache to be set this many seconds beyond the stated expiration time, i.e., so that the cache retains expired entries this much longer.  This also similarly extends the time that items are kept in the queue for C<< vtable_pull_queue => default >>.
+
+=item C<cache_prefix>  C<"vtab:">
+
+a string that is prefixed to all vtable cache keys; if you are using this same cache for other purposes than holding vtable entries, make sure said other purposes use different prefixes or at least that I<this> prefix is chosen so that no vtable entry will be confused with an entry made for some other purpose.
+
+=back
+
+=head2 Vtable ID Generation Options
+
+The following options govern the generation of keys for vtable entries.
+
+=over
+
+=item C<v_id_kind>
+
+one of
+
+=over
+
+=item C<'counter'>
+
+=item C<< ['counter', tag => I<tag> ] >>
+
+generate sequential IDs using a counter.  Providing C<tag> sets C<counter_tag> (which see).
+
+=item C<'random'>
+
+=item C<< ['random', length => I<n> ] >>
+
+generate random IDs using the random number generator.  Providing C<length> sets C<v_id_random_length>.
+
+=back
+
+=item C<v_id_suffix>
+
+(default C<''>) a common suffix to append to all IDs generated for this scheme.
+
+=item C<v_id_random_length>
+
+integer; for when C<< v_id_kind => 'random' >>, the length of ID to use
+
+=item C<counter_tag>
+
+(C<''>) for when C<< v_id_kind => 'counter' >>, a string tag identifying
+the counter to be used.  A new counter will be initialized if the
+specified tag has not been seen before.
+
+
+=back
+
+The counter associated with a given tag is guaranteed to produce
+distinct IDs on each invocation during an arbitrary 194-day (2^24
+second) window around the time of invocation, regardless of which
+process or thread/PerlInterpreter it is invoked from.
+
+Therefore all schemes using the same cache object with the same
+C<cache_tag> and the same C<v_id_suffix> should be sure to use
+the same counter tag in order not to have ID collisions
+
+=head2 Random Number Generator Options
+
+The random number generator is used for generation of vtable IDs,
+nonces, secrets, and whatever other unpredictable artifacts need to be
+created.
+
+=over
+
+=item C<random_class>
+
+package name; currently C<'L<Math::Random::ISAAC>'>
+and C<'L<Math::Random::MT::Auto>'> (Mersenne Twister) are supported.
+
+=item C<random>
+
+coderef; takes an integer and returns a string of that many random bytes
+
+=back
+
 
