@@ -5,7 +5,7 @@ package Net::OAuth2::Scheme::HmacUtil;
 # ABSTRACT: hash functions and encodings
 
 use Digest::SHA ();
-use MIME::Base64 qw(encode_base64 decode_base64);
+# use MIME::Base64 qw(encode_base64 decode_base64);
 
 use parent qw(Exporter);
 our @EXPORT_OK = qw(
@@ -129,16 +129,21 @@ sub unsign_binary {
 # are meaningful in URLs
 
 sub encode_base64url {
-    local $_ = encode_base64(shift,'');
-    y.+/.-_.;
-    s/=+$//;
-    return $_;
+     local $_ = join '' , map {pack 'B6',$_} ((unpack 'B*',shift).'0000') =~ m/(.{6})/gs;
+     y(\0\4\10\14\20\24\30\34\40\44\50\54\60\64\70\74\100\104\110\114\120\124\130\134\140\144\150\154\160\164\170\174\200\204\210\214\220\224\230\234\240\244\250\254\260\264\270\274\300\304\310\314\320\324\330\334\340\344\350\354\360\364\370\374)(A-Za-z0-9\-_);
+#    local $_ = encode_base64(shift,'');
+#    y|+/=|-_|d;
+     return $_;
 }
 
 sub decode_base64url {
     local $_ = shift;
-    y.-_.+/.;
-    return decode_base64($_);
+    y(A-Za-z0-9\-_)(\0\4\10\14\20\24\30\34\40\44\50\54\60\64\70\74\100\104\110\114\120\124\130\134\140\144\150\154\160\164\170\174\200\204\210\214\220\224\230\234\240\244\250\254\260\264\270\274\300\304\310\314\320\324\330\334\340\344\350\354\360\364\370\374)d;
+    return pack 'B'. (((3*length)>>2)<<3) , join '', unpack 'B6'x(length), $_;
+
+#   # for some reason this is way faster than:
+#   y|-_=|+/|d;
+#   return decode_base64($_ . substr('===',(3+length)>>2))
 }
 
 # plainstring is printable ascii excluding whitespace, backslash,
