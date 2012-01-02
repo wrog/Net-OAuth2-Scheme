@@ -34,7 +34,7 @@ sub pkg_token_accept_default {
 
     if ($self->uses('usage') eq 'authcode') {
         # authcode is the token string ONLY
-        $self->install( token_accept => sub { return $_[0]; } );
+        $self->install( token_accept => sub { return (undef, $_[0]); } );
         return $self;
     }
 
@@ -44,7 +44,7 @@ sub pkg_token_accept_default {
         $self->install( token_accept => sub {
             my ($token, %params) = @_;
             $token = $params{refresh_token} if  $params{refresh_token};
-            return $token;
+            return (undef, $token);
         });
         return $self;
     }
