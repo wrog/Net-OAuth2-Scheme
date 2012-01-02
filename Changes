@@ -1,5 +1,9 @@
 {{$NEXT}}
 
+    * fixed prerequisites
+
+    * default RNG is not Math::Random::MT::Auto
+
 0.010001_001      Jan 01 2012
 
     * initial version
