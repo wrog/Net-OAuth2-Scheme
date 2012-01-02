@@ -23,8 +23,8 @@ use Net::OAuth2::Scheme::HmacUtil
 #   (bearer_)scheme_re = '^Bearer$';
 #   (bearer_)allow_body = 1;
 #   (bearer_)allow_uri = 0;
-#   (bearer_)param = 'oauth_token';
-#   (bearer_)param_re = '^oauth_token$';
+#   (bearer_)param = 'access_token';
+#   (bearer_)param_re = '^access_token$';
 #   (bearer_)client_uses_param = 0;
 # SUMMARY
 #   Bearer token, handle-style
@@ -34,7 +34,7 @@ Default_Value bearer_token_type => 'Bearer';
 Default_Value bearer_scheme => 'Bearer';
 Default_Value bearer_allow_body => 1;
 Default_Value bearer_allow_uri => 0;
-Default_Value bearer_param => 'oauth_token';
+Default_Value bearer_param => 'access_token';  #as per draft 15 of the bearer spec
 Default_Value bearer_client_uses_param => 0;
 
 Define_Group bearer_param_re_set => 'default',
