@@ -64,7 +64,7 @@ sub pkg_transport_http_hmac {
             my $params = shift;
             $params->{mac_received} = time();
             return ("unknown_algorithm")
-              unless hmac_name_to_len_fn($params->{mac_algoritym});
+              unless hmac_name_to_len_fn($params->{mac_algorithm});
             return ();
         });
 

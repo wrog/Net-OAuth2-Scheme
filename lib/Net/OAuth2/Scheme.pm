@@ -159,7 +159,7 @@ respective binding information.  These are two separate methods
 because (1) handling of multiple apparent tokens in a message will
 depend on the resource API and is thus outside the scope of these
 modules, and (2) for refresh tokens and authorization codes,
-B<token_validate> is not actually needed.
+B<psgi_extract> is not actually needed.
 
 =back
 

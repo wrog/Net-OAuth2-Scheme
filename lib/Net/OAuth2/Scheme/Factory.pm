@@ -781,7 +781,7 @@ sufficiently long to make collisions extremely unlikely.)
 =head2 Random Number Generator Options
 
 The random number generator is used for generation of vtable IDs,
-nonces, secrets, and whatever other unpredictable artifacts need to be
+nonces, secrets, and other unpredictable artifacts that need to be
 created.
 
 =over

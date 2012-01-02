@@ -72,6 +72,8 @@ sub pkg_token_accept_default {
         my ($error) = $hook->(\%params);
         return ($error) if $error;
 
+        # (1) everything in @$needs is passed through (as %save)
+        #     and we die if any of them are missing
         my @missing = ();
         my %save = map {
             my $v = $params{$_};
@@ -80,6 +82,9 @@ sub pkg_token_accept_default {
         } @$needs;
         return ("missing_$missing[0]") if @missing;
 
+        # (2) if $keep is a listref,
+        #     we keep JUST those additional fields (i.e., beyond @$needs)
+        #     otherwise we keep everything that is not in @$remove
         if (ref $keep) {
             %params = map {$save{$_}? (): ($_,$params{$_})} @$keep;
         }

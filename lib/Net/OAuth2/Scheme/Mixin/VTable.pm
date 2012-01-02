@@ -110,11 +110,11 @@ sub pkg_vtable_resource_pull {
           (qw(vtable_get   vtable_load   vtable_query   vtable_pull));
         $self->install( vtable_lookup => sub {
             my $v_id = shift;
-            my ($error, @found) = $vtable_get->(${v_id});
+            my ($error, @found) = $vtable_get->($v_id);
             unless ($error || @found) {
                 ($error) = $vtable_load->($vtable_pull->($vtable_query->()));
                 return $error if $error;
-                ($error,@found) = $vtable_get->(${v_id});
+                ($error,@found) = $vtable_get->($v_id);
             }
             return ($error, @found);
         });
