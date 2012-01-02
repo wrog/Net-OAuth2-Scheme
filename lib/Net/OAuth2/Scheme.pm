@@ -2,7 +2,7 @@ use warnings;
 use strict;
 
 package Net::OAuth2::Scheme;
-# ABSTRACT: Token schemes and definition framework for OAuth 2.0
+# ABSTRACT: Token scheme definition framework for OAuth 2.0
 
 our $Factory_Class = 'Net::OAuth2::Scheme::Factory';
 
