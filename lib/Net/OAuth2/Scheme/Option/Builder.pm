@@ -39,7 +39,7 @@ sub _find_group {
 # define our own croak so that there are reasonable error messages when options get set incorrectly
 our @load = ();
 our $Show_Uses_Stack = 1; #for now
-our $Visible_Destroy = 1; #for now
+our $Visible_Destroy = 0;
 
 sub croak {
     my ($self,$msg) = @_;
