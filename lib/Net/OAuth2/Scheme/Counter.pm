@@ -15,7 +15,12 @@ my $start;
 # This counter rolls over every 200 days
 # (token lifetimes should not be ANYWHERE NEAR this long)
 sub _mk_start {
-    $start = pack "Cw2a3a*", 0x0, ($i_id = interpreter_id), ($p_id = $$), pack('V',time());
+    $start = pack "Cw2a3", 0x3f, ($i_id = interpreter_id), ($p_id = $$), pack('V',time());
+}
+
+sub suffix {
+    my $value = shift;
+    return (unpack 'w3a3a*', (ord($value)&0x40) ? chr(0xc0)^$value : $value)[4];
 }
 
 sub next {
@@ -25,23 +30,19 @@ sub next {
     # check for fork()
     ref($self)->CLONE unless $$ == $p_id;
 
-    my $s0 = ord(substr($current{$tag},0,1));
-    my ($n,$s) = unpack 'wa*', (($s0 & 0x40) ? chr(0xc0)^$current{$tag} : $current{$tag});
-    $s = pack 'wa*', $n+1, $s;
-    $s0 = ord(substr($s,0,1));
+    my $s0 = ord($current{$tag});
+    my ($n,$s) = unpack 'wa*',
+      ((ord($current{$tag}) & 0x40) ? chr(0x80)^$current{$tag} : $current{$tag});
+    my $ns = pack 'w', $n+1;
     return $current{$tag} =
-      ($s0 & 0xc0)==0x80 ? chr(0xc0)^$s : ($s0 & 0x40) ? chr(0x40).$s : $s;
-
-    # # base-128 bytestring
-    # # high-order byte has high-order bit set; all others are 0x00-0xfe
-    # $current{$tag} =~ m{\A(\177*)(?:([\0-\176])([\0-\177]*[\200-\377])|([\200-\377]))(.*)}s;
-    # return $current{$tag} = pack 'a*Ca*a*',
-    #   "\0" x length($1),
-    #   (defined($2)
-    #    ? (ord($2)+1, $3)
-    #    : (ord($4)==255 ? (0, "\200") : (ord($4)+1, ''))
-    #   ),
-    #   $5;
+      (
+       !(ord($ns) & 0x40) ? $ns :
+       (ord($ns) & 0x80) ? chr(0x80).$ns :
+       chr(0x80)^$ns
+#      ((ord($ns) & 0xc0)==0x80 ? chr(0xc0)^$ns :
+#       (ord($ns) & 0x40) ? chr(0x40).$ns :
+#       $ns
+      ).$s;
 }
 
 sub new {

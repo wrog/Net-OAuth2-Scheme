@@ -5,13 +5,14 @@ package Net::OAuth2::Scheme::Mixin::NextID;
 # ABSTRACT: the 'v_id_next', 'counter', and 'random' option groups
 
 use Net::OAuth2::Scheme::Option::Defines;
+use Net::OAuth2::Scheme::Counter;
 
 # INTERFACE v_id_next
 # DEFINES
 #   v_id_next v_id_is_random
 
 Define_Group v_id_next => 'default',
-  qw(v_id_next v_id_is_random);
+  qw(v_id_next v_id_is_random v_id_get_suffix);
 
 Default_Value v_id_random_length => 12;
 Default_Value v_id_suffix => '';
@@ -29,35 +30,50 @@ Default_Value v_id_suffix => '';
 sub pkg_v_id_next_default {
     my __PACKAGE__ $self = shift;
     $self->parameter_prefix(v_id_ => @_);
-    my ($kind, $suffix) = $self->uses_all(qw(v_id_kind v_id_suffix));
+    my $kind = $self->uses('v_id_kind');
     ($kind, my @kvs) = @$kind if ref($kind) eq 'ARRAY';
-
-    my $next_id;
     if ($kind eq 'random') {
-        require Net::OAuth2::Scheme::Random;
+        $self->parameter_prefix(v_id_random_ => @kvs);
+        if ($self->is_resource) {
+            $self->install(v_id_get_suffix => sub {
+                my $value = shift;
+                return (unpack 'w/aa*',$value)[1];
+            });
+        }
+        if ($self->is_auth_server) {
+            require Net::OAuth2::Scheme::Random;
+            my $random = $self->uses('random');
+            my $length = $self->uses('v_id_random_length');
+            my $suffix = $self->uses('v_id_suffix');
 
-        my $random = $self->uses('random');
-        my $length = $self->uses(v_id_random_length => {@kvs}->{length});
-
-        $self->croak("v_id_length must be at least 8")
-            unless $length >= 8;
-        $self->croak("v_id_length must be no more than 127")
-            unless $length <= 127;
-        $next_id = sub { pack 'Ca*a*', 128+$length, $random->($length), $suffix };
-        $self->install('v_id_is_random', 1);
+            $self->croak("v_id_length must be at least 8")
+              unless $length >= 8;
+            $self->croak("v_id_length must be no more than 127")
+              unless $length <= 127;
+            $self->install(v_id_is_random => 1);
+            $self->install(v_id_next => sub {
+                return pack 'Ca*a*', 128+$length, $random->($length), $suffix;
+            });
+        }
     }
     elsif ($kind eq 'counter') {
-        require Net::OAuth2::Scheme::Counter;
-
-        $self->uses('counter_tag' => {@kvs}->{tag});
-        my $counter = $self->uses('counter');
-        $next_id = sub { pack 'a*a*', $counter->next(), $suffix };
-        $self->install('v_id_is_random', 0);
+        $self->parameter_prefix(v_id_counter_ => @kvs);
+        $self->make_alias(v_id_counter_tag => 'counter_tag');
+        if ($self->is_resource) {
+            $self->install(v_id_get_suffix => $self->uses('counter_get_suffix'));
+        }
+        if ($self->is_auth_server) {
+            my $counter = $self->uses('counter');
+            my $suffix = $self->uses('v_id_suffix');
+            $self->install(v_id_is_random => 0);
+            $self->install(v_id_next => sub {
+                return $counter->next() . $suffix;
+            });
+        }
     }
     else {
         $self->croak("unknown v_id_kind: $kind");
     }
-    $self->install( v_id_next => $next_id );
 }
 
 
@@ -69,14 +85,19 @@ sub pkg_v_id_next_default {
 # DEFINES
 #   counter  object with a 'next' method () -> string of bytes
 
-Define_Group counter => 'default';
+Define_Group counter_set => 'default', qw(counter counter_get_suffix);
 
 Default_Value counter_tag => '';
 
-sub pkg_counter_default {
+sub pkg_counter_set_default {
     my __PACKAGE__ $self = shift;    
-    my $tag = $self->uses('counter_tag');
-    $self->install('counter', Net::OAuth2::Scheme::Counter->new($tag));
+    if ($self->is_auth_server) {
+        my $tag = $self->uses('counter_tag');
+        $self->install('counter', Net::OAuth2::Scheme::Counter->new($tag));
+    }
+    if ($self->is_resource_server) {
+        $self->install('counter_get_suffix', \&Net::OAuth2::Scheme::Counter::suffix);
+    }
 }
 
 
