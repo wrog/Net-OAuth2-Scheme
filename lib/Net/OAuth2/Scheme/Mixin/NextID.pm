@@ -5,6 +5,7 @@ package Net::OAuth2::Scheme::Mixin::NextID;
 # ABSTRACT: the 'v_id_next', 'counter', and 'random' option groups
 
 use Net::OAuth2::Scheme::Option::Defines;
+use Net::OAuth2::Scheme::Random;
 use Net::OAuth2::Scheme::Counter;
 
 # INTERFACE v_id
@@ -125,12 +126,14 @@ Default_Value  random_class => 'Math::Random::MT::Auto';
 
 Define_Group  random_set => 'default', qw(random);
 
-# If you can find a better one, go for it.
 sub pkg_random_set_default {
+    require Net::OAuth2::Scheme::Random;
     my __PACKAGE__ $self = shift;
-    my $rng = Net::OAuth2::Server::Random->new($self->uses('random_class'));
+    my $rng = Net::OAuth2::Scheme::Random->new($self->installed('random_class'));
     $self->install( random => sub { $rng->bytes(@_) });
+    return $self;
 }
+
 
 1;
 
