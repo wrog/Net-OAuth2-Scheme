@@ -81,7 +81,6 @@ sub http_header_extractor {
     if (defined(my $parse_header = $o{parse_header})) {
         return sub {
             my $request = Plack::Request->new(shift);
-            my ($env) = @_;
             my @found = ();
             $request->headers->scan(sub {
                 return unless lc(shift) =~ $header_re;
@@ -104,7 +103,7 @@ sub http_header_extractor {
     }
 
     return sub {
-        my ($plack_req) = @_;
+        my $plack_req = Plack::Request->new(shift);
         my @found = ();
         $plack_req->headers->scan(sub {
             return unless lc(shift) =~ $header_re;
