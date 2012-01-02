@@ -110,7 +110,6 @@ sub pkg_transport_http_hmac {
 # REQUIRES
 #   v_id_next
 #   v_table_insert
-#   v_id_kind == something random
 
 sub pkg_format_http_hmac {
     my __PACKAGE__ $self = shift;
@@ -125,11 +124,8 @@ sub pkg_format_http_hmac {
       or $self->croak("unknown/unavailable hmac function: $mac_alg_name");
 
     if ($self->is_auth_server) {
-        my $random = $self->uses('random');  # for key generation
-        $self->uses(v_id_kind => 'counter'); # preferred but not required
-        my $v_id_next = $self->uses('v_id_next');
-        my $vtable_insert = $self->uses('vtable_insert');
-        my $token_type = $self->uses('token_type');
+        my ($random, $v_id_next, $vtable_insert, $token_type) = $self->uses_all
+          qw(random   v_id_next   vtable_insert   token_type);
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
             my $v_id = $v_id_next->();

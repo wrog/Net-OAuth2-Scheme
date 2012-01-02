@@ -55,7 +55,6 @@ sub pkg_current_secret_simple {
 
     my @stashed = (undef, undef, 0, @$payload);
 
-    $self->uses(v_id_kind => 'counter'); # preferred but not required
     my $v_id_next = $self->uses('v_id_next');
 
     $self->install( current_secret => \@stashed );

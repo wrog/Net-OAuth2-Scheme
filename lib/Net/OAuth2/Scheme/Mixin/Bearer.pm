@@ -114,6 +114,7 @@ sub pkg_format_bearer_handle {
     $self->install(format_no_params => 1);
 
     if ($self->is_auth_server) {
+        $self->uses(v_id_suggest => 'random');
         my ( $v_id_next, $vtable_insert) = $self->uses_all
           (qw(v_id_next   vtable_insert));
 
@@ -124,7 +125,6 @@ sub pkg_format_bearer_handle {
                       'bearer_handle tokens must use random identifiers');
 
         my $token_type = ($self->is_access ? $self->uses('token_type') : ());
-
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
             my $v_id = $v_id_next->();

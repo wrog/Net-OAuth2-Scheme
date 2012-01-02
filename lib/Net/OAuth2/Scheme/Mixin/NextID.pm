@@ -7,73 +7,85 @@ package Net::OAuth2::Scheme::Mixin::NextID;
 use Net::OAuth2::Scheme::Option::Defines;
 use Net::OAuth2::Scheme::Counter;
 
-# INTERFACE v_id_next
+# INTERFACE v_id
 # DEFINES
-#   v_id_next v_id_is_random
+#   v_id_next
+#   v_id_is_random
+#   v_id_get_suffix
 
-Define_Group v_id_next => 'default',
+Define_Group v_id => 'default',
   qw(v_id_next v_id_is_random v_id_get_suffix);
 
 Default_Value v_id_random_length => 12;
 Default_Value v_id_suffix => '';
 
+sub pkg_v_id_default {
+    my __PACKAGE__ $self = shift;
+    my $which = $self->uses('v_id_suggest', 'counter');
+    my $pkg = "pkg_v_id_${which}";
+    return $self->$pkg(@_);
+}
+
+# IMPLEMENTATION v_id_random FOR v_id
 # REQUIRES
-#   v_id_kind
-# (v_id_kind == 'random')
 #   random
-# (v_id_kind == 'counter')
+# OPTIONS
+#   v_id_random_length
+#   v_id_suffix
+
+sub pkg_v_id_random {
+    my __PACKAGE__ $self = shift;
+    $self->parameter_prefix(qw(v_id_ _default random_length) => @_);
+    $self->make_alias(qw(v_id_random_length v_id_length));
+    if ($self->is_auth_server) {
+        my $random = $self->uses('random');
+        my $length = $self->uses('v_id_random_length');
+        my $suffix = $self->uses('v_id_suffix');
+
+        $self->croak("v_id_length must be at least 8")
+          unless $length >= 8;
+        $self->install(v_id_is_random => 1);
+        my $l = pack 'w', $length+56;
+        $l = ((ord($l)&0xc0)==0xc0 ? chr(0x00).$l :
+              (ord($l)&0xc0)==0x80 ? chr(0x80)^$l :
+              $l);
+        $self->install(v_id_next => sub {
+            return $l . $random->($length) . $suffix;
+        });
+    }
+    if ($self->is_resource_server) {
+        $self->install(v_id_get_suffix => sub {
+            my $v = shift;
+            my ($l,$rest) = unpack 'wa*', (ord($v)&0x40)==0 ? chr(0x80)^$v : $v;
+            return substr($rest,$l-56);
+        });
+    }
+    return $self;
+}
+
+# IMPLEMENTATION v_id_counter FOR v_id
+# REQUIRES
 #   counter
 # OPTIONS
+#   v_id_counter_tag
 #   v_id_suffix
-#   v_id_random_length   (v_id_kind == 'random')
 
-sub pkg_v_id_next_default {
+sub pkg_v_id_counter {
     my __PACKAGE__ $self = shift;
-    $self->parameter_prefix(v_id_ => @_);
-    my $kind = $self->uses('v_id_kind');
-    ($kind, my @kvs) = @$kind if ref($kind) eq 'ARRAY';
-    if ($kind eq 'random') {
-        $self->parameter_prefix(v_id_random_ => @kvs);
-        if ($self->is_resource) {
-            $self->install(v_id_get_suffix => sub {
-                my $value = shift;
-                return (unpack 'w/aa*',$value)[1];
-            });
-        }
-        if ($self->is_auth_server) {
-            require Net::OAuth2::Scheme::Random;
-            my $random = $self->uses('random');
-            my $length = $self->uses('v_id_random_length');
-            my $suffix = $self->uses('v_id_suffix');
-
-            $self->croak("v_id_length must be at least 8")
-              unless $length >= 8;
-            $self->croak("v_id_length must be no more than 127")
-              unless $length <= 127;
-            $self->install(v_id_is_random => 1);
-            $self->install(v_id_next => sub {
-                return pack 'Ca*a*', 128+$length, $random->($length), $suffix;
-            });
-        }
+    $self->parameter_prefix(qw(v_id_ _default counter_tag) => @_);
+    $self->make_alias(v_id_counter_tag => 'counter_tag');
+    if ($self->is_resource_server) {
+        $self->install(v_id_get_suffix => $self->uses('counter_get_suffix'));
     }
-    elsif ($kind eq 'counter') {
-        $self->parameter_prefix(v_id_counter_ => @kvs);
-        $self->make_alias(v_id_counter_tag => 'counter_tag');
-        if ($self->is_resource) {
-            $self->install(v_id_get_suffix => $self->uses('counter_get_suffix'));
-        }
-        if ($self->is_auth_server) {
-            my $counter = $self->uses('counter');
-            my $suffix = $self->uses('v_id_suffix');
-            $self->install(v_id_is_random => 0);
-            $self->install(v_id_next => sub {
-                return $counter->next() . $suffix;
-            });
-        }
+    if ($self->is_auth_server) {
+        my $counter = $self->uses('counter');
+        my $suffix = $self->uses('v_id_suffix');
+        $self->install(v_id_is_random => 0);
+        $self->install(v_id_next => sub {
+            return $counter->next() . $suffix;
+        });
     }
-    else {
-        $self->croak("unknown v_id_kind: $kind");
-    }
+    return $self;
 }
 
 
@@ -98,6 +110,7 @@ sub pkg_counter_set_default {
     if ($self->is_resource_server) {
         $self->install('counter_get_suffix', \&Net::OAuth2::Scheme::Counter::suffix);
     }
+    return $self;
 }
 
 

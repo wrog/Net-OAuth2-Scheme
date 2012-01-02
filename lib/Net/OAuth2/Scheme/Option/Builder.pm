@@ -234,7 +234,13 @@ sub uses_all {
 
 sub parameter_prefix {
     my __PACKAGE__ $self = shift;
-    my ($prefix, %h) = @_;
+    my $prefix = shift;
+    if (@_ && $_[0] eq '_default') {
+        shift;
+        # discard default parameter name if not needed
+        shift if @_ % 2;
+    }
+    my (%h) = @_;
     $self->ensure("${prefix}$_",$h{$_})
       for (keys %h);
 }
