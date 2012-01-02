@@ -152,11 +152,13 @@ sub pkg_vtable_cache_object {
         if length($prefix) && $prefix =~ m{:[^:]};
 
     $self->install( vtable_get => sub {
-        return (undef, @{$cache->get($prefix . $_[0]) || []});
+        my $v = $cache->thaw($prefix . $_[0]);
+        return (undef, @{defined($v) ? $v : []});
     });
     $self->install( vtable_put => sub {
         my $id = shift;
-        return $cache->set($prefix . $id, [@_], $_[0] + $grace);
+        $cache->freeze($prefix . $id, [@_], $_[0] + $grace);
+        return ();
     });
 }
 
