@@ -201,32 +201,44 @@ This specifies the intended use of the token, one of the following
 
 =item C<'access'>
 
-(Default.)  An access token for use by a client to make use of a particular API at a resource server.
+(Default.)
+An access token for use by a client to make use of a particular API at
+a resource server.
 
 =item C<'refresh'>
 
-A refresh token for use by a client at an authorization server's token endpoint to obtain replacement access tokens.
+A refresh token for use by a client at an authorization server's token
+endpoint to obtain replacement access tokens.
 
 =item C<'authcode'>
 
-An authorization code for use by a client at an authorization server's token endpoint to obtain access and refresh tokens.
+An authorization code for use by a client at an authorization server's
+token endpoint to obtain access and refresh tokens.
 
-(Strictly speaking, authorization codes are not regarded as tokens by the OAuth 2 specification, however they require the same methods as refresh tokens, i.e., they need to be created and validated.  Currently authcode schemes differ from refresh token schemes only in choice of binding information, which is outside the scope of these modules, so C<refresh> and C<authcode> schemes are functionally identical, for now...)
+(Strictly speaking, authorization codes are not regarded as tokens by
+the OAuth 2 specification, however they require the same methods as
+refresh tokens, i.e., they need to be created and validated.
+Currently authcode schemes differ from refresh token schemes only in
+choice of binding information, which is outside the scope of these
+modules, so C<refresh> and C<authcode> schemes are functionally
+identical, for now...)
 
 =back
 
-Note that in OAuth2, client and resource server implementations do not, in fact,
-(currently) need to use scheme objects other than C<< usage => 'access' >> ones.
+Note that in OAuth2, client and resource server implementations do
+not, in fact, (currently) need to use scheme objects other than
+C<< usage => 'access' >> ones.
 
-While client implementations do indeed to handle refresh tokens and authorization
-codes, in that context they are simply passed through as opaque strings and all questions of
-transport that would normally be of interest are already completely
-determined by the OAuth2 protocol itself, so there are no actual
-methods that need to be made available.
+While client implementations do in fact see refresh tokens and
+authorization codes, in that context they are simply passed through as
+opaque strings and all questions of transport that would normally be
+of interest are already completely determined by the OAuth2 protocol
+itself, so there are no actual methods that need to be made available.
 
 =item C<context>
 
-For access-token schemes, this specifies the implementation context, one or more of the following:
+For access-token schemes, this specifies the implementation context,
+one or more of the following:
 
 =over
 
@@ -242,8 +254,8 @@ The methods B<psgi_extract> and B<token_validate> will be provided.
 
 =item C<'auth_server'>
 
-This scheme object is for use in an authorization server implementation.
-The B<token_create> method will be provided.
+This scheme object is for use in an authorization server
+implementation.  The B<token_create> method will be provided.
 
 =back
 
@@ -267,25 +279,32 @@ required in these cases as well.
 
 =head2 Transport Options
 
-The transport options determines how B<psgi_extract> and B<http_insert> are implemented.  They concern where the token appears in a given HTTP message, the usual choices being a header field, a (POST or other) body parameter, or a URI parameter.  In the event that a header field is used, the header in question will generally be "authorization-formatted", i.e., formatted as per L<rfc2617> and successor specifications, in which case an authorization scheme name will also need to be specified.
+The transport options determines how B<psgi_extract> and
+B<http_insert> are implemented.  They concern where the token appears
+in a given HTTP message, the usual choices being a header field, a
+(POST or other) body parameter, or a URI parameter.  In the event that
+a header field is used, the header in question will generally be
+"authorization-formatted", i.e., formatted as per L<rfc2617|http://datatracker.ietf.org/doc/rfc2617/> and
+successor specifications, in which case an authorization scheme name
+will also need to be specified.
 
 =over
 
 =item C<transport>
 
-The specific transport scheme to use; current choices are:
+The specific transport scheme to use; current available choices are:
 
 =over
 
 =item C<'bearer'>
 
-Bearer token (L<draft-ietf-oauth-v2-bearer>) consisting of a single
+Bearer token (L<draft-ietf-oauth-v2-bearer|http://datatracker.ietf.org/doc/draft-ietf-oauth-v2-bearer/>) consisting of a single
 (secret, unpredictable) string.
-The various C<bearer_> options below apply.
+The various C<bearer_> options below apply and
 
 =item C<'http_hmac'>
 
-HTTP-HMAC token (L<draft-ietf-oauth-v2-http-mac>),
+HTTP-HMAC token (L<draft-ietf-oauth-v2-http-mac|http://datatracker.ietf.org/doc/draft-ietf-oauth-v2-http-mac/>),
 a "proof-style" token in which the token is a string (key identifier)
 and two additional parameters (C<nonce>, C<mac>) placed in an Authorization
 header constituting proof that the client possesses the token secret
@@ -296,51 +315,76 @@ The various C<http_hmac_> options below apply.
 
 =back
 
-The following generic transport options are applicable to all choices of C<transport> implementation.
+The following generic transport options are applicable to all choices
+of C<transport> implementation.
 
 =over
 
 =item C<transport_header>
 
-if this is a transport scheme that allows the use of headers, indicates the header to be used by clients and also as the header where tokens will be recognized by resource servers if C<transport_header_re> has not been set.  Default is C<"Authorization">.
+if this is a transport scheme that allows the use of headers,
+indicates the header to be used by clients and also as the header
+where tokens will be recognized by resource servers if
+C<transport_header_re> has not been set.
+
+Default is C<"Authorization">.
 
 =item C<transport_header_re>
 
-regexp; if this is a transport scheme that allows the use of headers, the resource server will recognize tokens in headers whose names match this pattern.
+regexp; if this is a transport scheme that allows the use of headers,
+the resource server will recognize tokens in headers whose names match
+this pattern.
 
 =item C<transport_auth_scheme>
 
-if this is a transport scheme that calls for an Authorization-formatted header, indicates the authorization scheme to be used by clients and also the scheme that will be recognized by resource servers if C<transport_auth_scheme_re> has not been set.
+if this is a transport scheme that calls for an
+Authorization-formatted header, indicates the authorization scheme to
+be used by clients and also the scheme that will be recognized by
+resource servers if C<transport_auth_scheme_re> has not been set.
 
 =item C<transport_auth_scheme_re>
 
-regexp; if this is a transport scheme that calls for an authorization-formatted header, the resource server will recognize tokens in headers whose authorization scheme matches this pattern.
+regexp; if this is a transport scheme that calls for an
+authorization-formatted header, the resource server will recognize
+tokens in headers whose authorization scheme matches this pattern.
 
 =back
 
-The following options apply when C<< transport => 'bearer' >> is selected and can be included with the prefix omitted, e.g.,
+The following options apply when C<< transport => 'bearer' >> is
+selected and can be included with the C<bearer_> prefix omitted, e.g.,
 
  transport => ['bearer', allow_body => 1],
 
 =over
 
-=item C<(bearer_)allow_body>
+=item C<bearer_allow_body>
 
-boolean; if true, (default) resource server will recognize tokens located in the request body, otherwise, request body will be ignored when searching for tokens.
+boolean; if true, (default) resource server will recognize tokens
+located in the request body, otherwise, request body will be ignored
+when searching for tokens.
 
-=item C<(bearer_)allow_uri>
+=item C<bearer_allow_uri>
 
-boolean; if true, resource server will recognize tokens located in the request URI, otherwise, (default) request URI will be ignored when searching for tokens.
+boolean; if true, resource server will recognize tokens located in the
+request URI, otherwise, (default) request URI will be ignored when
+searching for tokens.
 
-=item C<(bearer_)client_uses_param>
+=item C<bearer_client_uses_param>
 
-boolean; if true, client send the token as a body or URI parameter (use whichever is available as per C<bearer_allow_body> or C<bearer_allow_uri>, preferring body), rather than a header, otherwise, (default) client will send the token in an authorization-formatted header.
+boolean; if true, client send the token as a body or URI parameter
+(use whichever is available as per C<bearer_allow_body> or
+C<bearer_allow_uri>, preferring body), rather than a header,
+otherwise, (default) client will send the token in an
+authorization-formatted header.
 
-=item C<(bearer_)header>
+=item C<bearer_header>
 
-clients place tokens in this (authorization-formatted) header.  This also serves as the default header where resource servers look for tokens if C<bearer_header_re> is not set.  Default is C<'Authorization'>.
+clients place tokens in this (authorization-formatted) header.
+This also serves as the default header where resource servers look for
+tokens if C<bearer_header_re> is not set.  Default is
+C<'Authorization'>.
 
-=item C<(bearer_)header_re>
+=item C<bearer_header_re>
 
 regexp; resource server looks for tokens in headers whose names match this
 
@@ -348,19 +392,19 @@ regexp; resource server looks for tokens in headers whose names match this
 
 name of body or URI parameter for client to use if either C<allow_uri> or C<allow_body> is set and C<bearer_client_uses_param> is set.  This also serves as the default parameter name the resource server looks for if C<bearer_param_re> is not set.  Default is C<'oauth_token'>.
 
-=item C<(bearer_)param_re>
+=item C<bearer_param_re>
 
 regexp; if C<allow_uri> or C<allow_body> is set, resource server should look for tokens in parameters with matching names.
 
-=item C<(bearer_)scheme>
+=item C<bearer_scheme>
 
 if authorization-formatted headers are called for, client will use this authorization scheme.  This also serves as the default pattern for the scheme that resource servers will recognize if C<bearer_scheme_re> is not set.  Default is C<'Bearer'>.
 
-=item C<(bearer_)scheme_re>
+=item C<bearer_scheme_re>
 
 regexp; resource server recognizes tokens in authorization-formatted headers whose scheme matches this pattern.
 
-=item C<(bearer_)token_type>
+=item C<bearer_token_type>
 
 authorization server sets and client should expect this value of C<token_type> in I<@token_as_issued>.  Default is C<'Bearer'>.
 
@@ -370,11 +414,11 @@ The following options apply when C<< transport => 'http_hmac' >> is selected and
 
 =over
 
-=item C<(http_hmac_)header>
+=item C<http_hmac_header>
 
 clients place tokens in this header field.  This also serves as the default header where resource servers look for tokens if C<http_hmac_header_re> is not set.  Default is C<'Authorization'>.
 
-=item C<(http_hmac_)header_re>
+=item C<http_hmac_header_re>
 
 regexp; resource server looks for tokens in headers whose names match this pattern.
 
@@ -442,7 +486,8 @@ communicated out of band to the resource server.
 
 =item C<'hmac_http'>
 
-Implements the formatting portion of L<draft-ietf-oauth-v2-http-mac>
+Implements the formatting portion of
+L<draft-ietf-oauth-v2-http-mac|http://datatracker.ietf.org/doc/draft-ietf-oauth-v2-http-mac/>
 (see description under C<transport_hmac_http>).  Expiration
 information and all binding data live in the vtable and must be
 communicated out of band to the resource server, as for
@@ -518,7 +563,8 @@ authorization server and the resource server, whether this be, say,
 
 =item *
 
-a L<memcached> server (or a farm thereof) mutually accessible to
+a L<memcached|http://search.cpan.org/search?query=memcached&mode=all>
+server (or a farm thereof) mutually accessible to
 authorization and resource servers, which can then live on entirely
 different hosts or even distinct network sites
 

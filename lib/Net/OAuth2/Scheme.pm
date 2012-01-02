@@ -172,7 +172,13 @@ B<vtable_pull> below).
 Exactly how the code would look depends on the respective server
 frameworks in use and we're trying to be agnostic about that, but...
 
-  our %access_options = (... options describing token scheme ...);
+  our %access_options = (
+    transport => 'bearer',
+    format => 'bearer_handle',
+    vtable => 'shared_cache',
+    cache => ...
+    # see L<Net::OAuth2::Scheme::Factory> for other possibilities
+  );
 
   ##
   ## Within the Client Implementation
@@ -338,7 +344,7 @@ the code for that will need to include something like
  $scheme = new(%scheme_options);
  $scheme = new(factory => $factory_class, %scheme_options);
 
-See L<Net::OAuth::Scheme::Factory>, the default factory class,
+See L<Net::OAuth2::Scheme::Factory>, the default factory class,
 for what can be in I<%scheme_options>.
 
 Use the second form if you want to substitute your own $factory_class;
