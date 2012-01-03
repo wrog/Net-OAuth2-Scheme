@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+    * fix 5.8 pseudo-hash failure
+
 0.010002_002 Jan 02 2012
 
     * fixed prerequisites

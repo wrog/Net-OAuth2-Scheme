@@ -36,35 +36,13 @@ sub _find_group {
     return \%find_group;
 }
 
-# define our own croak so that there are reasonable error messages when options get set incorrectly
-our @load = ();
-our $Show_Uses_Stack = 1; #for now
+# if we need to see whether we are leaving behind
+# any closures with links to self
 our $Visible_Destroy = 0;
-
-sub croak {
-    my ($self,$msg) = @_;
-    my $c = 0;
-    for my $key (@load) {
-        my $pkg_foo = $self->{pkg}->{$key}->[0] ||'?';
-        my $from = ref($self)->_find_group->{$key};
-        $from = $from ? " (group $find_group{$key} ($pkg_foo))" : '';
-        ++$c;
-        while (defined(caller($c)) && (caller($c))[3] !~ '::uses$') { ++$c; }
-        while ((caller($c))[0] eq __PACKAGE__) { ++$c; }
-        if ($Show_Uses_Stack) {
-            my ($file,$line) = (caller($c))[1,2];
-            print STDERR "... option '$key'$from needed at $file, line $line'\n";
-        }
-    }
-    {
-        no strict 'refs';
-        # make Carp trust everyone between here and first caller to uses()
-        # which is usually going to be Scheme->new().
-        push @{(caller($_))[0] . '::CARP_NOT'}, __PACKAGE__
-          for (0..$c);
-    }
-    Carp::croak($msg);
+sub DESTROY {
+    print STDERR "Boom!\n" if $Visible_Destroy;
 }
+
 
 use fields qw(value alias default pkg export);
 
@@ -109,8 +87,33 @@ sub new {
     return $self;
 }
 
-sub DESTROY {
-    print STDERR "Boom!\n" if $Visible_Destroy;
+# define our own croak so that there are reasonable error messages when options get set incorrectly
+our @load = ();
+our $Show_Uses_Stack = 1; #for now
+
+sub croak {
+    my ($self,$msg) = @_;
+    my $c = 0;
+    for my $key (@load) {
+        my $pkg_foo = $self->{pkg}->{$key}->[0] ||'?';
+        my $from = ref($self)->_find_group->{$key};
+        $from = $from ? " (group $find_group{$key} ($pkg_foo))" : '';
+        ++$c;
+        while (defined(caller($c)) && (caller($c))[3] !~ '::uses$') { ++$c; }
+        while ((caller($c))[0] eq __PACKAGE__) { ++$c; }
+        if ($Show_Uses_Stack) {
+            my ($file,$line) = (caller($c))[1,2];
+            print STDERR "... option '$key'$from needed at $file, line $line'\n";
+        }
+    }
+    {
+        no strict 'refs';
+        # make Carp trust everyone between here and first caller to uses()
+        # which is usually going to be Scheme->new().
+        push @{(caller($_))[0] . '::CARP_NOT'}, __PACKAGE__
+          for (0..$c);
+    }
+    Carp::croak($msg);
 }
 
 # actual('key')

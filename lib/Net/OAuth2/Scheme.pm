@@ -177,7 +177,7 @@ frameworks in use and we're trying to be agnostic about that, but...
     format => 'bearer_handle',
     vtable => 'shared_cache',
     cache => ...
-    # see L<Net::OAuth2::Scheme::Factory> for other possibilities
+    # see Net::OAuth2::Scheme::Factory for other possibilities
   );
 
   ##
