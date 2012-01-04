@@ -48,7 +48,7 @@ sub Default_Value {
     ${"${class}::Default"}{$oname} = $value;
 
     # suppress warning about Default only being used once
-    ${"${class}::Default"}{''} = undef;
+    ${"${class}::Default"}{''} = 0;
 }
 
 sub Define_Group {
@@ -69,7 +69,7 @@ sub Define_Group {
          : ()),
        };
     # suppress warning about Group only being used once
-    ${"${class}::Group"}{''} = undef;
+    ${"${class}::Group"}{''} = +{ keys => [] };
 }
 
 1;

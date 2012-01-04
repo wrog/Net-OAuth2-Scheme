@@ -33,7 +33,7 @@ sub _find_group {
         }
         $find_group{$class} = \%fg;
     }
-    return \%find_group;
+    return $find_group{$class};
 }
 
 # if we need to see whether we are leaving behind
@@ -92,12 +92,15 @@ our @load = ();
 our $Show_Uses_Stack = 1; #for now
 
 sub croak {
-    my ($self,$msg) = @_;
+    my __PACKAGE__ $self = shift;
+    my $msg = shift;
     my $c = 0;
     for my $key (@load) {
-        my $pkg_foo = $self->{pkg}->{$key}->[0] ||'?';
-        my $from = ref($self)->_find_group->{$key};
-        $from = $from ? " (group $find_group{$key} ($pkg_foo))" : '';
+        my $from = ref($self)->_find_group->{$key} || '';
+        if ($from) {
+            my $pkg_foo = $self->{pkg}->{$key} ? $self->{pkg}->{$key}->[0] : '?';
+            $from = " (group $from ($pkg_foo))";
+        }
         ++$c;
         while (defined(caller($c)) && (caller($c))[3] !~ '::uses$') { ++$c; }
         while ((caller($c))[0] eq __PACKAGE__) { ++$c; }

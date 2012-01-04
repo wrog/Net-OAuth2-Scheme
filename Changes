@@ -1,5 +1,7 @@
 {{$NEXT}}
 
+    * fix 5.8 pseudo-hash failure (2)
+
 0.010003_003 Jan 02 2012
 
     * fix 5.8 pseudo-hash failure
