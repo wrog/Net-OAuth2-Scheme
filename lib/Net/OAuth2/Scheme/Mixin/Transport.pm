@@ -247,9 +247,9 @@ sub http_parameter_inserter {
 
 =pod
 
-=head1 SYNOPSIS
-
 =head1 DESCRIPTION
 
-This defines transport schemes.
+This is an internal module that provides helper functions for
+implementing the various transport schemes.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

@@ -80,7 +80,6 @@ sub Define_Group {
 
  use Net::OAuth2::Scheme::Option::Defines;
 
-
 =head1 DESCRIPTION
 
 This provides a set of utility functions for defining option groups

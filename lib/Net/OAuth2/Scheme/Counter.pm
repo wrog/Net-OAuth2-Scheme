@@ -89,3 +89,10 @@ sub CLONE {
 }
 
 1;
+
+=pod
+
+=head1 DESCRIPTION
+
+internal module.
+

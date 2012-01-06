@@ -48,9 +48,9 @@ sub pkg_token_validate_default {
 
 =pod
 
-=head1 SYNOPSIS
-
 =head1 DESCRIPTION
 
-This creates a framework for specifying token formats.
+This is an internal module that implements the B<token_validate> method
+and provides hooks for implementing the various token formats.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

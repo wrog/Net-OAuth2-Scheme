@@ -176,7 +176,10 @@ frameworks in use and we're trying to be agnostic about that, but...
     transport => 'bearer',
     format => 'bearer_handle',
     vtable => 'shared_cache',
-    cache => ...
+    cache => Cache::Memcached->new(
+      # parameters for resource/authserver shared cache
+      ...
+    ),
     # see Net::OAuth2::Scheme::Factory for other possibilities
   );
 

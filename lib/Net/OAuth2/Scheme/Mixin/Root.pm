@@ -85,5 +85,6 @@ sub pkg_root_setup {
 
 =head1 DESCRIPTION
 
-This defines implementation contexts.
+This is an internal module that defines implementation contexts.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

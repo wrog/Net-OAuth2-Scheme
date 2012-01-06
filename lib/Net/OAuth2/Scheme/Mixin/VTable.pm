@@ -265,9 +265,10 @@ sub pkg_vtable_pull_queue_default {
 
 =pod
 
-=head1 SYNOPSIS
-
 =head1 DESCRIPTION
 
-This creates a framework for sharing secrets between authorization servers and resource servers.
+This is an internal module that implements the abstract shared cache
+for sharing secrets between authorization servers and resource
+servers.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

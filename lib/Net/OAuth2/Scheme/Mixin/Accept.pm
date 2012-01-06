@@ -105,5 +105,6 @@ sub pkg_token_accept_default {
 
 =head1 DESCRIPTION
 
-This implements the default B<token_accept> client token method.
+This is an internal module that implements the B<token_accept> client method.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

@@ -249,5 +249,6 @@ sub pkg_format_bearer_signed {
 
 =head1 DESCRIPTION
 
-This implements two varieties of Bearer tokens.
+This is an internal module that implements two varieties of Bearer tokens.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

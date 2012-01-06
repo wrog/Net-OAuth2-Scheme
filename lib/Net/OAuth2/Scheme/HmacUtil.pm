@@ -204,3 +204,8 @@ sub decode_plainstring {
 1;
 
 =pod
+
+=head1 DESCRIPTION
+
+internal module.
+

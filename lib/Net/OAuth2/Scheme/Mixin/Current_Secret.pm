@@ -62,10 +62,10 @@ sub pkg_current_secret_simple {
         my ($now) = @_;
         my (undef, undef, $expiration) = @stashed;
         if ($expiration < $now + $rekey_interval) {
-            my ($v_id, $new_secret, $new_expiration) = 
-              @stashed = ($v_id_next->(), 
-                          $random->($length), 
-                          $now + 2 * $rekey_interval, 
+            my ($v_id, $new_secret, $new_expiration) =
+              @stashed = ($v_id_next->(),
+                          $random->($length),
+                          $now + 2 * $rekey_interval,
                           @$payload);
             $vtable_insert->($v_id,
                              $new_expiration, $now, $new_secret,
@@ -84,5 +84,7 @@ sub pkg_current_secret_simple {
 
 =head1 DESCRIPTION
 
-This manages a shared "current secret" as needed for signed-Bearer token format.
+This is an internal module that implements management of
+the shared "current secret" needed for C<bearer_signed> token format.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

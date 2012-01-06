@@ -171,8 +171,9 @@ sub pkg_format_http_hmac {
 
 =head1 DESCRIPTION
 
-This implements HMac-HTTP tokens as described in
+This is an internal module that implements HMac-HTTP tokens as described in
 L<draft-ietf-oauth-v2-http-mac-00|http://tools.ietf.org/html/draft-ietf-oauth-v2-http-mac-00>
 minus the bodyhash functionality (which was in the process of being
 discarded last I looked at the mailing list)
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.

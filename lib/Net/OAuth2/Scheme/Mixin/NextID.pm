@@ -139,9 +139,9 @@ sub pkg_random_set_default {
 
 =pod
 
-=head1 SYNOPSIS
-
 =head1 DESCRIPTION
 
-This handles ID generation for use as VTable keys.
+This is an internal module that implements ID generation for use as
+VTable keys.
 
+See L<Net::OAuth2::Scheme::Factory> for actual option usage.
