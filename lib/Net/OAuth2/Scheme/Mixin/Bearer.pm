@@ -208,9 +208,9 @@ sub pkg_format_bearer_signed {
             }
             my $nonce = $random->($nonce_len);
             return (undef,
-                    encode_base64url(pack 'w/aa*', $v_id,
+                    encode_base64url(pack 'w/a*a*', $v_id,
                                      sign_binary($v_secret,
-                                                 pack('w/aww(w/a)*', $nonce,
+                                                 pack('w/a*ww(w/a*)*', $nonce,
                                                       $now, $expires_in,
                                                       @bindings),
                                                  hmac => $hmac,
@@ -225,7 +225,7 @@ sub pkg_format_bearer_signed {
         # so we just have to take whatever we get from the vtable
         $self->install( token_parse => sub {
             my ($token) = @_; # bearer token, no additional attributes
-            my ($v_id, $bin) = unpack 'w/aa*', decode_base64url($token);
+            my ($v_id, $bin) = unpack 'w/a*a*', decode_base64url($token);
             return ($v_id, $v_id, $bin)
         });
         $self->install( token_finish => sub {
@@ -233,7 +233,7 @@ sub pkg_format_bearer_signed {
             my (undef, undef, $v_secret, @fixed) = @$validator;
             my ($payload, $error) = unsign_binary($v_secret, $bin, $v_id);
             return ($error) if $error;
-            my ($now, $expires_in, @bindings) = unpack 'w/xww(w/a)*', $payload;
+            my ($now, $expires_in, @bindings) = unpack 'w/xww(w/a*)*', $payload;
             return (undef, $now, $expires_in, @fixed, @bindings);
         });
     }

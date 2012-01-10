@@ -108,12 +108,12 @@ sub sign_binary {
     my ($id, $fn) = _hmac_name_to_id_fn($aname);
     my $extra = $o{extra};
     $extra = '' unless defined $extra;
-    return pack 'ww/aa*', $id, $fn->($secret, $value . $extra), $value;
+    return pack 'ww/a*a*', $id, $fn->($secret, $value . $extra), $value;
 }
 
 sub unsign_binary {
     my ($secret, $bin, $extra) = @_;
-    my ($id, $hash, $value) = unpack 'ww/aa*', $bin;
+    my ($id, $hash, $value) = unpack 'ww/a*a*', $bin;
     my ($keylen, $fn) = _hmac_id_to_len_fn($id) or
       return (undef, "unknown hash function id: $id");
     $extra = '' unless defined $extra;
