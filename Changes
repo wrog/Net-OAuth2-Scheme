@@ -1,8 +1,14 @@
 {{$NEXT}}
 
+    * remove unnecessary 'd' modifier from decode_base64url
+
 0.020002_099 Jan 10 2012
 
+    * use w/a* instead of w/a for 5.8
+
 0.020001_099 Jan 10 2012
+
+    * better test labels
 
 0.02      Jan 05 2012
 
