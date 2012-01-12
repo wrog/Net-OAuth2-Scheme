@@ -125,7 +125,7 @@ sub pkg_format_http_hmac {
 
     if ($self->is_auth_server) {
         my ($random, $v_id_next, $vtable_insert, $token_type) = $self->uses_all
-          qw(random   v_id_next   vtable_insert   token_type);
+          (qw(random  v_id_next   vtable_insert   token_type));
         $self->install( token_create => sub {
             my ($now, $expires_in, @bindings) = @_;
             my $v_id = $v_id_next->();

@@ -47,11 +47,11 @@ sub pkg_current_secret_simple {
     $self->parameter_prefix(current_secret_ => @_);
     my ( $random, $vtable_insert,
          $rekey_interval, $length, $payload)
-      = $self->uses_all(
-       qw(random   vtable_insert
-          current_secret_rekey_interval
-          current_secret_length
-          current_secret_payload));
+      = $self->uses_all
+        (qw(random   vtable_insert
+            current_secret_rekey_interval
+            current_secret_length
+            current_secret_payload));
 
     my @stashed = (undef, undef, 0, @$payload);
 
