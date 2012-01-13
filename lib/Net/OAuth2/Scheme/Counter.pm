@@ -25,7 +25,7 @@ sub suffix {
 
 sub next {
     my $self = shift;
-    my $tag = $$self;
+    my $tag = ${$self};
 
     # check for fork()
     ref($self)->CLONE unless $$ == $p_id;
@@ -61,7 +61,7 @@ sub new {
 
 sub DESTROY {
     my $self = shift;
-    --$refs{$$self};
+    --$refs{${self}};
     # this routine only exists for the sake of being able to detect
     # unused tags upon interpreter clone or process fork.
     #

@@ -112,10 +112,10 @@ scheme object being created.
 One should generally not need to create factory objects directly,
 though it I<is> intended for one to be able to design customized
 factory I<classes> with their own option group definitions and
-implementation methods to, say, accomodate new token formats or
+implementation methods to, say, accommodate new token formats or
 transport schemes.  See
 L<Net::OAuth2::Scheme::Option::Builder> and
-L<Net::OAuth2::Scheme::Option::Defines> and the various mixins
+L<Net::OAuth2::Scheme::Option::Defines> and the various mix-ins
 L<Net::OAuth2::Scheme::Mixin::*> for a sense of how this works
 [... since we're still in alpha release here, be aware that this
 particular part of our world may be in a bit of flux for a while...]

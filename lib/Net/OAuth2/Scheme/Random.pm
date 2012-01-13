@@ -83,12 +83,12 @@ sub _rng {
     # check for fork()
     ref($self)->CLONE unless $$ == $p_id;
 
-    return $rng{$$self};
+    return $rng{${$self}};
 }
 
 sub DESTROY {
     my $self = shift;
-    --$refs{$$self};
+    --$refs{${$self}};
     # this routine only exists for the sake of being able to detect
     # unused RNG classes upon interpreter clone or process fork.
     #
@@ -128,7 +128,7 @@ sub bytes {
         if $nbytes < 0;
 
     my $rng = $self->_rng;
-    my $ish = $ish{$$self} || 2;
+    my $ish = $ish{${$self}} || 2;
     my $imask = (1<<$ish)-1;
     my $L = $ish == 2 ? 'L' : 'Q';
 
@@ -140,12 +140,12 @@ sub bytes {
     }
     else {
         my ($rest);
-        my $extras = $bytes{$$self};
+        my $extras = $bytes{${$self}};
         if ($nrem == length($extras)) {
-            ($rest,$bytes{$$self}) = ($extras,'');
+            ($rest,$bytes{${$self}}) = ($extras,'');
         }
         else {
-            ($rest,$bytes{$$self}) = unpack 'C/aa*',
+            ($rest,$bytes{${$self}}) = unpack 'C/aa*',
               ($nrem > length($extras)
                ? pack "Ca*${L}", $nrem, $extras, $rng->irand
                : pack 'Ca*',  $nrem, $extras);
