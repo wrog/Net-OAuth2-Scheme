@@ -64,7 +64,7 @@ sub pkg_transport_auth_scheme_set_default {
 #
 # for defining http_insert and psgi_extract
 # when token is being stashed in a header
-# 
+#
 
 sub http_header_extractor {
     my __PACKAGE__ $self = shift;
@@ -148,7 +148,7 @@ sub http_header_inserter {
 sub http_parameter_extractor {
     my __PACKAGE__ $self = shift;
     my ($body_or_query, $token_param_re, $other_re) = @_;
-    my $parameters = ($body_or_query eq 'dontcare' ? "parameters" 
+    my $parameters = ($body_or_query eq 'dontcare' ? "parameters"
                       : "${body_or_query}_parameters");
     return sub {
         my $request = Plack::Request->new(shift);
