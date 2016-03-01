@@ -77,42 +77,39 @@ sub http_header_extractor {
         $self->croak("transport_header_re does not match transport_header")
             if ($header !~ $header_re);
     }
-    
-    if (defined(my $parse_header = $o{parse_header})) {
-        return sub {
-            my $request = Plack::Request->new(shift);
-            my @found = ();
-            $request->headers->scan(sub {
-                return unless lc(shift) =~ $header_re;
-                my @t = $parse_header->(shift, $request);
-                push @found, \@t if @t;
-            });
-            return @found;
-        };
-    }
 
-    # what most people want to do
-    my $parse_auth = $o{parse_auth} || sub {$_[0]};
+    my $parse_header = $o{parse_header} || do {
+	# default parsing routine (what most people want to do)
+	# assumes header is formatted like an Authorization: header
+	my $parse_auth = $o{parse_auth} || sub {$_[0]};
 
-    my $scheme_re = $self->uses('transport_auth_scheme_re');
-    $scheme_re = qr{$scheme_re}is unless ref($scheme_re);
+	my $scheme_re = $self->uses('transport_auth_scheme_re');
+	$scheme_re = qr{$scheme_re}is unless ref($scheme_re);
 
-    if (defined(my $scheme = $self->installed('transport_auth_scheme'))) {
-        $self->croak("transport_auth_scheme_re does not match transport_auth_scheme")
-          if ($scheme !~ $scheme_re);
-    }
+	if (defined(my $scheme = $self->installed('transport_auth_scheme'))) {
+	    $self->croak("transport_auth_scheme_re does not match transport_auth_scheme")
+	      if ($scheme !~ $scheme_re);
+	}
+	sub {
+	    my ($val, $request) = @_;
+	    return () unless my ($s,$auth) = $val =~ m{([-A-Za-z0-9!#-'*+.^-`|~]+)\s+(.*\S|)\s*\z}s;
+	    return () unless $s =~ $scheme_re;
+	    return $parse_auth->($auth, $request);
+	}
+    };
 
     return sub {
-        my $plack_req = Plack::Request->new(shift);
-        my @found = ();
-        $plack_req->headers->scan(sub {
-            return unless lc(shift) =~ $header_re;
-            return unless my ($s,$auth) = shift =~ m{([-A-Za-z0-9!#-'*+.^-`|~]+)\s+(.*\S|)\s*\z}s;
-            return unless lc($s) =~ $scheme_re;
-            my @t = $parse_auth->($auth, $plack_req);
-            push @found, \@t if @t;
-        });
-        return @found;
+	my @found = ();
+	my $request = Plack::Request->new(shift);
+	my $headers = $request->headers;
+	for my $fname ($headers->header_field_names) {
+	    next unless $fname =~ $header_re;
+	    for my $val ($headers->header($fname)) {
+		my @t = $parse_header->($val, $request);
+		push @found, \@t if @t;
+	    }
+	}
+	return @found;
     };
 }
 
